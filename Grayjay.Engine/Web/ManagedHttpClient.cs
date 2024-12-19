@@ -110,17 +110,24 @@ namespace Grayjay.Engine.Web
                     else throw new NotImplementedException("Unsupported http body type: " + (body?.GetType()?.ToString() ?? ""));
                 }
 
-                Task<HttpResponseMessage> respTask = _client.SendAsync(req);
+                Task<HttpResponseMessage> respTask = _client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
                 //TODO: Determine if there is a more optimal way to keep this context synchronous. For now this is the safest.
                 respTask.Wait();
                 HttpResponseMessage resp = respTask.Result;
 
-                if(!resp.IsSuccessStatusCode)
+                var hds = resp.Headers.ToDictionary(x => x.Key.ToLower(), y => string.Join(", ", y.Value));
+                foreach(var header in resp.Content.Headers)
+                {
+                    if (!hds.ContainsKey(header.Key))
+                        hds.Add(header.Key.ToLower(), string.Join(", ", header.Value));
+                }
+
+                if (!resp.IsSuccessStatusCode)
                 {
                     return new Response()
                     {
                         Code = (int)resp.StatusCode,
-                        Headers = resp.Headers.ToDictionary(x => x.Key.ToLower(), y => string.Join(", ", y.Value)),
+                        Headers = hds,
                         Body = new ResponseContent(resp.Content.ReadAsStreamAsync().Result),
                         Url = resp.RequestMessage.RequestUri?.ToString()
                     };
@@ -129,7 +136,7 @@ namespace Grayjay.Engine.Web
                 return new Response()
                 {
                     Code = (int)resp.StatusCode,
-                    Headers = resp.Headers.ToDictionary(x => x.Key.ToLower(), y => string.Join(", ", y.Value)),
+                    Headers = hds,
                     Body = new ResponseContent(resp.Content.ReadAsStreamAsync().Result),
                     Url = resp.RequestMessage.RequestUri?.ToString()
                 };
