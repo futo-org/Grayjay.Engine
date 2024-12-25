@@ -23,7 +23,7 @@ namespace Grayjay.Engine.Setting
             public bool EnableSearch { get; set; } = true;
         }
 
-        [SettingsField("Rate-limit", SettingsField.GROUP, "Settings related to reate-limiting this plugin's behavior", 3)]
+        [SettingsField("Rate-limit", SettingsField.GROUP, "Settings related to rate-limiting this plugin's behavior", 3)]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public RateLimitSettings RateLimit { get; set; } = new RateLimitSettings();
         public class RateLimitSettings
