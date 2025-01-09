@@ -21,6 +21,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -89,7 +90,7 @@ namespace Grayjay.Engine
             HttpClient = new PluginHttpClient(this, null, _captcha);
             HttpClientAuth = new PluginHttpClient(this, _auth, _captcha);
         }
-        public GrayjayPlugin(PluginDescriptor descriptor, string script, string? savedState = null)
+        public GrayjayPlugin(PluginDescriptor descriptor, string script, string? savedState = null, PluginHttpClient client = null, PluginHttpClient clientAuth = null)
         {
             Config = descriptor.Config;
             Descriptor = descriptor;
@@ -100,8 +101,18 @@ namespace Grayjay.Engine
             _auth = descriptor.GetAuth();
             _captcha = descriptor.GetCaptchaData();
 
-            HttpClient = new PluginHttpClient(this, null, _captcha);
-            HttpClientAuth = new PluginHttpClient(this, _auth, _captcha);
+            if (client != null)
+                client.SetPlugin(this);
+            if (clientAuth != null)
+                clientAuth.SetPlugin(this);
+
+            HttpClient = client ?? new PluginHttpClient(this, null, _captcha);
+            HttpClientAuth = clientAuth ?? new PluginHttpClient(this, _auth, _captcha);
+        }
+
+        public void ReplaceDescriptorSettings(Dictionary<string, string> settings)
+        {
+            Descriptor.Settings = settings;
         }
 
         public void UpdateDescriptor(PluginDescriptor descriptor)
@@ -182,6 +193,15 @@ namespace Grayjay.Engine
                     throw new NotImplementedException($"Package [{name}] is not implemented");
             }
         }
+        public Package GetPackageByVariable(string variableName)
+        {
+            return _packages.FirstOrDefault(x => x.VariableName == variableName);
+        }
+
+        public List<string> GetPackageVariables()
+        {
+            return _packages.Where(x => x.VariableName != null).Select(x => x.VariableName).ToList();
+        }
 
         public void Test()
         {
@@ -194,8 +214,8 @@ namespace Grayjay.Engine
             return new GrayjayPlugin(Descriptor, _script, GetSavedState());
         }
 
-
-        public void Enable()
+        [JSDocs(0, "enable", "source.enable(...)", "")]
+        public virtual void Enable()
         {
             if (!IsInitialized)
                 throw new InvalidOperationException("Call Initialize first");
@@ -214,7 +234,7 @@ namespace Grayjay.Engine
                 Enable();
         }
 
-        public void Disable()
+        public virtual void Disable()
         {
             try
             {
@@ -243,19 +263,20 @@ namespace Grayjay.Engine
             return (string)res;
         }
 
-        public IPager<PlatformContent> GetHome()
+        [JSDocs(1, "getHome", "source.getHome()", "")]
+        public virtual IPager<PlatformContent> GetHome()
         {
             EnsureEnabled();
             return EvaluatePager<PlatformContent>($"source.getHome()", (content) => { content.ID.PluginID = Config.ID; });
         }
 
-        public PlatformPlaylistDetails GetPlaylist(string url)
+        public virtual PlatformPlaylistDetails GetPlaylist(string url)
         {
             EnsureEnabled();
             return EvaluateObject<PlatformPlaylistDetails>($"source.getPlaylist({SerializeParameter(url)})");
         }
 
-        public ResultCapabilities GetSearchCapabilities()
+        public virtual ResultCapabilities GetSearchCapabilities()
         {
             if (!Capabilities.HasGetSearchCapabilities)
             {
@@ -280,18 +301,18 @@ namespace Grayjay.Engine
                 };
             }
         }
-        public IPager<PlatformContent> Search(string query, string? type = null, string? order = null, Dictionary<string, string[]>? filters = null)
+        public virtual IPager<PlatformContent> Search(string query, string? type = null, string? order = null, Dictionary<string, string[]>? filters = null)
         {
             EnsureEnabled();
             return EvaluatePager<PlatformContent>($"source.search({SerializeParameter(query)}, {SerializeParameter(type)}, {SerializeParameter(order)}, {SerializeParameter(filters)})", (content) => { content.ID.PluginID = Config.ID; });
         }
 
-        public IPager<PlatformAuthorLink> SearchChannels(string query, string? type = null, string? order = null, Dictionary<string, string[]>? filters = null)
+        public virtual IPager<PlatformAuthorLink> SearchChannels(string query, string? type = null, string? order = null, Dictionary<string, string[]>? filters = null)
         {
             EnsureEnabled();
             return EvaluatePager<PlatformAuthorLink>($"source.searchChannels({SerializeParameter(query)}, {SerializeParameter(type)}, {SerializeParameter(order)}, {SerializeParameter(filters)})", (content) => { content.ID.PluginID = Config.ID; });
         }
-        public IPager<PlatformContent> SearchChannelsAsContent(string query)
+        public virtual IPager<PlatformContent> SearchChannelsAsContent(string query)
         {
             EnsureEnabled();
             return EvaluatePager<PlatformAuthorLink, PlatformContent>($"source.searchChannels({SerializeParameter(query)})", (content) => { 
@@ -300,31 +321,31 @@ namespace Grayjay.Engine
             });
         }
 
-        public IPager<PlatformContent> SearchPlaylists(string query)
+        public virtual IPager<PlatformContent> SearchPlaylists(string query)
         {
             EnsureEnabled();
             return EvaluatePager<PlatformContent>($"source.searchPlaylists({SerializeParameter(query)})", (content) => { content.ID.PluginID = Config.ID; });
         }
 
-        public List<string> SearchSuggestions(string query)
+        public virtual List<string> SearchSuggestions(string query)
         {
             EnsureEnabled();
             return EvaluateObject<List<string>>($"source.searchSuggestions({SerializeParameter(query)})");
         }
 
-        public bool IsContentDetailsUrl(string url)
+        public virtual bool IsContentDetailsUrl(string url)
         {
             EnsureEnabled();
             return (bool)_engine.Evaluate($"source.isContentDetailsUrl({SerializeParameter(url)})");
         }
-        public IPlatformContentDetails GetContentDetails(string url)
+        public virtual IPlatformContentDetails GetContentDetails(string url)
         {
             EnsureEnabled();
             var result = EvaluateObject<IPlatformContentDetails>($"source.getContentDetails({SerializeParameter(url)})");
             result.ID.PluginID = Config.ID;
             return result;
         }
-        public List<Chapter> GetContentChapters(string url)
+        public virtual List<Chapter> GetContentChapters(string url)
         {
             if (!Capabilities.HasGetContentChapters)
                 return new List<Chapter>();
@@ -332,7 +353,7 @@ namespace Grayjay.Engine
             return EvaluateObject<List<Chapter>>($"source.getContentChapters({SerializeParameter(url)})");
         }
 
-        public LiveChatWindowDescriptor GetLiveChatWindow(string url)
+        public virtual LiveChatWindowDescriptor GetLiveChatWindow(string url)
         {
             if (!Capabilities.HasGetLiveChatWindow)
                 return null;
@@ -341,15 +362,15 @@ namespace Grayjay.Engine
         }
 
 
-        public bool IsChannelUrl(string url)
+        public virtual bool IsChannelUrl(string url)
             => (bool)_engine.Evaluate($"source.isChannelUrl({SerializeParameter(url)})");
-        public bool IsPlaylistUrl(string url)
+        public virtual bool IsPlaylistUrl(string url)
         {
             if (!Capabilities.HasGetPlaylist)
                 return false;
             return (bool)_engine.Evaluate($"source.isPlaylistUrl({SerializeParameter(url)})");
         }
-        public PlatformChannel GetChannel(string url)
+        public virtual PlatformChannel GetChannel(string url)
         {
             EnsureEnabled();
             var channel = EvaluateObject<PlatformChannel>($"source.getChannel({SerializeParameter(url)})");
@@ -357,7 +378,7 @@ namespace Grayjay.Engine
             return channel;
         }
 
-        public ResultCapabilities GetChannelCapabilities()
+        public virtual ResultCapabilities GetChannelCapabilities()
         {
             if (!Capabilities.HasGetChannelCapabilities)
                 return new ResultCapabilities()
@@ -379,7 +400,7 @@ namespace Grayjay.Engine
                 };
             }
         }
-        public IPager<PlatformContent> SearchChannelContents(string channelUrl, string query) => WithIsBusy(() =>
+        public virtual IPager<PlatformContent> SearchChannelContents(string channelUrl, string query) => WithIsBusy(() =>
         {
             EnsureEnabled();
             return EvaluatePager<PlatformContent>($"source.searchChannelContents({SerializeParameter(channelUrl)}, {SerializeParameter(query)})", (content) =>
@@ -387,7 +408,7 @@ namespace Grayjay.Engine
                 content.ID.PluginID = Config.ID;
             });
         });
-        public IPager<PlatformContent> GetChannelContents(string channelUrl, string? type = null, string? order = null, Dictionary<string, List<string>>? filters = null) => WithIsBusy(() =>
+        public virtual IPager<PlatformContent> GetChannelContents(string channelUrl, string? type = null, string? order = null, Dictionary<string, List<string>>? filters = null) => WithIsBusy(() =>
         {
             EnsureEnabled();
             return EvaluatePager<PlatformContent>($"source.getChannelContents({SerializeParameter(channelUrl)}, {SerializeParameter(type)}, {SerializeParameter(order)}, {SerializeParameter(filters)})", (content) =>
@@ -396,19 +417,19 @@ namespace Grayjay.Engine
             });
         });
 
-        public IPager<PlatformComment> GetComments(string url) => WithIsBusy(() =>
+        public virtual IPager<PlatformComment> GetComments(string url) => WithIsBusy(() =>
         {
             EnsureEnabled();
             return EvaluatePager<PlatformComment>($"source.getComments({SerializeParameter(url)})", (content) => { content.Author.ID.PluginID = Config.ID; });
         });
 
-        public IPager<PlatformComment> GetSubComments(PlatformComment comment) => WithIsBusy(() =>
+        public virtual IPager<PlatformComment> GetSubComments(PlatformComment comment) => WithIsBusy(() =>
         {
             EnsureEnabled();
             return comment.GetReplies() ?? EvaluatePager<PlatformComment>($"source.getSubComments({SerializeParameter(comment)})", (content) => { content.Author.ID.PluginID = Config.ID; });
         });
 
-        public PlaybackTracker? GetPlaybackTracker(string url) => WithIsBusy(() =>
+        public virtual PlaybackTracker? GetPlaybackTracker(string url) => WithIsBusy(() =>
         {
             EnsureEnabled();
             if (!Capabilities.HasGetPlaybackTracker)
@@ -417,14 +438,14 @@ namespace Grayjay.Engine
         });
 
 
-        public List<string> GetUserSubscriptions() => WithIsBusy(() =>
+        public virtual List<string> GetUserSubscriptions() => WithIsBusy(() =>
         {
             if (!Capabilities.HasGetUserSubscriptions)
                 return null;
             EnsureEnabled();
             return EvaluateObject<List<string>>($"source.getUserSubscriptions()");
         });
-        public List<string> GetUserPlaylists() => WithIsBusy(() =>
+        public virtual List<string> GetUserPlaylists() => WithIsBusy(() =>
         {
             if (!Capabilities.HasGetUserPlaylists)
                 return null;
@@ -721,6 +742,53 @@ namespace Grayjay.Engine
             return null;
         }
 
+        public static List<JSCallDocs> GetJSDocs()
+        {
+            return typeof(GrayjayPlugin).GetMethods().Select(x =>
+            {
+                var attr = x.GetCustomAttribute<JSDocsAttribute>();
+
+                return (x, attr);
+            }).Where(x => x.attr != null)
+            .OrderBy(x => x.attr.Order)
+            .Select(y => new JSCallDocs(y.attr?.Name ?? y.x.Name, y.attr.Code, y.attr.Description, new List<JSParameterDocs>(), y.x.GetCustomAttribute<JSOptionalAttribute>() != null, null))
+            .ToList();
+        }
+
+        [Serializable]
+        public class JSCallDocs
+        {
+            public string Title { get; set; }
+            public string Code { get; set; }
+            public string Description { get; set; }
+            public List<JSParameterDocs> Parameters { get; set; }
+            public bool IsOptional { get; set; } = false;
+            public string DocsUrl { get; set; } = null;
+
+            public JSCallDocs(string title, string code, string description, List<JSParameterDocs> parameters, bool isOptional = false, string docsUrl = null)
+            {
+                Title = title;
+                Code = code;
+                Description = description;
+                Parameters = parameters;
+                IsOptional = isOptional;
+                DocsUrl = docsUrl;
+            }
+        }
+
+        [Serializable]
+        public class JSParameterDocs
+        {
+            public string Name { get; set; }
+            public string Description { get; set; }
+
+            public JSParameterDocs(string name, string description)
+            {
+                Name = name;
+                Description = description;
+            }
+        }
+
         public class PlatformClientCapabilities
         {
             public bool HasChannelSearch { get; set; }
@@ -761,6 +829,10 @@ namespace Grayjay.Engine
         private Dictionary<string, Dictionary<string, string>> _currentCookieMap = null;
         private Dictionary<string, Dictionary<string, string>> _otherCookieMap = null;
 
+        public void SetPlugin(GrayjayPlugin plugin)
+        {
+            _plugin = plugin;
+        }
 
         public PluginHttpClient(GrayjayPlugin plugin, SourceAuth auth = null, SourceCaptcha captcha = null)
         {
@@ -846,5 +918,42 @@ namespace Grayjay.Engine
                 throw new NotImplementedException();
         }
 
+    }
+
+    [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
+    public class JSDocsAttribute : Attribute
+    {
+        public int Order { get; }
+        public string Name { get; set; }
+        public string Code { get; }
+        public string Description { get; }
+
+        public JSDocsAttribute(int order, string name, string code, string description)
+        {
+            Order = order;
+            Name = name;
+            Code = code;
+            Description = description;
+        }
+    }
+
+    [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
+    public class JSOptionalAttribute : Attribute
+    {
+    }
+
+    [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
+    public class JSDocsParameterAttribute : Attribute
+    {
+        public string Name { get; }
+        public string Description { get; }
+        public int Order { get; }
+
+        public JSDocsParameterAttribute(string name, string description, int order = 0)
+        {
+            Name = name;
+            Description = description;
+            Order = order;
+        }
     }
 }

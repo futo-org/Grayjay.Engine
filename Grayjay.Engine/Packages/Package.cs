@@ -9,6 +9,8 @@ namespace Grayjay.Engine.Packages
     {
         protected GrayjayPlugin _plugin;
 
+        public virtual string VariableName { get; } = null;
+
         public Package(GrayjayPlugin plugin)
         {
             _plugin = plugin;

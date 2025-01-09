@@ -13,6 +13,8 @@ namespace Grayjay.Engine.Packages
     [NoDefaultScriptAccess]
     public class PackageUtilities : Package
     {
+        public override string VariableName => "utility";
+
         public PackageUtilities(GrayjayPlugin plugin) : base(plugin)
         {
         }

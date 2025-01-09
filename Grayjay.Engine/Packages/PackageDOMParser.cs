@@ -16,6 +16,8 @@ namespace Grayjay.Engine.Packages
     [NoDefaultScriptAccess]
     public class PackageDOMParser: Package
     {
+        public override string VariableName => "domParser";
+
         public PackageDOMParser(GrayjayPlugin plugin) : base(plugin)
         {
 

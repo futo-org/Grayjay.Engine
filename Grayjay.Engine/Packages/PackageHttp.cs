@@ -2,6 +2,7 @@
 using Microsoft.ClearScript;
 using Microsoft.ClearScript.JavaScript;
 using Microsoft.ClearScript.V8;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -19,6 +20,9 @@ namespace Grayjay.Engine.Packages
     public class PackageHttp: Package
     {
         public static bool LogRequests = true;
+
+        public override string VariableName => "http";
+
 
         private ManagedHttpClient _client;
         private ManagedHttpClient _clientAuth;
@@ -108,6 +112,18 @@ namespace Grayjay.Engine.Packages
                     Headers = headers.ToDictionary<string>(),
                     UseAuth = auth,
                     Body = tbody.ArrayBuffer.GetBytes(),
+                    ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
+                });
+            }
+            else if(body is JArray jabody)
+            {
+                return Request(new RequestDescriptor()
+                {
+                    Method = "POST",
+                    Url = url,
+                    Headers = headers.ToDictionary<string>(),
+                    UseAuth = auth,
+                    Body = jabody.Select(x=>(byte)((int)x)).ToArray(),
                     ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
                 });
             }

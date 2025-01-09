@@ -12,6 +12,8 @@ namespace Grayjay.Engine.Packages
     [NoDefaultScriptAccess]
     public class PackageBridge: Package
     {
+        public override string VariableName => "bridge";
+
         private Action<string> _onLog;
 
         private GrayjayPlugin _plugin;

@@ -100,7 +100,10 @@ namespace Grayjay.Engine
         }
         public static object ToScriptArray(this IEnumerable objs)
         {
-            return ScriptEngine.Current.Script.Array.from(objs);
+            if (ScriptEngine.Current == null) //Not in script scope?
+                return objs.ToEnumerable().ToArray();
+            else
+                return ScriptEngine.Current.Script.Array.from(objs);
         }
 
         public static string ToCamelCased(this string str)
