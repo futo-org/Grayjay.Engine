@@ -102,10 +102,9 @@ namespace Grayjay.Engine.Web
                     }
                     else if (body is byte[] bodyBytes)
                     {
+                        req.Content = new ByteArrayContent(bodyBytes);
                         if (contentType.Value != null)
-                            req.Content = new ByteArrayContent(bodyBytes);
-                        else
-                            req.Content = new ByteArrayContent(bodyBytes);
+                            req.Content.Headers.TryAddWithoutValidation("Content-Type", contentType.Value);
                     }
                     else throw new NotImplementedException("Unsupported http body type: " + (body?.GetType()?.ToString() ?? ""));
                 }
