@@ -3,12 +3,15 @@ using Grayjay.Engine.Web;
 using HtmlAgilityPack;
 using Microsoft.ClearScript;
 using Microsoft.ClearScript.V8;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Text;
+using System.Text.Json.Serialization;
 using static Grayjay.Engine.Extensions;
 
 namespace Grayjay.Engine.Packages
@@ -56,13 +59,14 @@ namespace Grayjay.Engine.Packages
         public object ChildNodes => _node.ChildNodes.Select(x => new DOMNode(_package, x)).ToScriptArray();
 
         [ScriptMember("firstChild")]
-        public DOMNode FirstChild => new DOMNode(_package, _node.FirstChild);
+        public DOMNode FirstChild => _node.FirstChild != null ? new DOMNode(_package, _node.FirstChild) : null;
 
         [ScriptMember("lastChild")]
-        public DOMNode LastChild => new DOMNode(_package, _node.LastChild);
+        public DOMNode LastChild => _node.LastChild != null ? new DOMNode(_package, _node.LastChild) : null;
 
+        [Newtonsoft.Json.JsonIgnore]
         [ScriptMember("parentNode")]
-        public DOMNode ParentNode => new DOMNode(_package, _node.ParentNode);
+        public DOMNode ParentNode => _node.ParentNode != null ? new DOMNode(_package, _node.ParentNode) : null;
 
         [ScriptMember("attributes")]
         public Dictionary<string, string> Attributes => _node.Attributes.ToDictionary(x => x.Name, y => y.Value);
@@ -82,9 +86,11 @@ namespace Grayjay.Engine.Packages
         [ScriptMember("data")]
         public string Data => _node.InnerText;
 
+        [Newtonsoft.Json.JsonIgnore]
         [ScriptMember("classList")]
         public object ClassList => ScriptEngine.Current.Script.Array.from(_node.GetClasses());
 
+        [Newtonsoft.Json.JsonIgnore]
         [ScriptMember("className")]
         public string ClassName => string.Join(" ", ClassList);
 
@@ -93,6 +99,8 @@ namespace Grayjay.Engine.Packages
         {
             _package = package;
             _node = node;
+            if (node == null)
+                throw new NotImplementedException("Null node");
         }
 
         [ScriptMember("getAttribute")]
@@ -160,6 +168,42 @@ namespace Grayjay.Engine.Packages
             htmlDoc.LoadHtml(html);
 
             return new DOMNode(package, htmlDoc.DocumentNode);
+        }
+
+
+        [ScriptMember("toNodeTree")]
+        public SerializedNode ToNodeTree()
+        {
+            return new SerializedNode()
+            {
+                Children = _node.ChildNodes.Select(x => new DOMNode(_package, x).ToNodeTree()).ToList(),
+                Name = _node.Name,
+                Value = OuterHtml,
+                Attributes = Attributes
+            };
+        }
+        [ScriptMember("toNodeTreeJson")]
+        public string ToNodeTreeJson()
+        {
+            return JsonConvert.SerializeObject(new SerializedNode()
+            {
+                Children = _node.ChildNodes.Select(x => new DOMNode(_package, x).ToNodeTree()).ToList(),
+                Name = _node.Name,
+                Value = OuterHtml,
+                Attributes = Attributes
+            }, new JsonSerializerSettings()
+            {
+                ContractResolver = new CamelCasePropertyNamesContractResolver()
+            });
+        }
+
+        public class SerializedNode
+        {
+
+            public List<SerializedNode> Children { get; set; }
+            public string Name { get; set; }
+            public string Value { get; set; }
+            public Dictionary<string, string> Attributes { get; set; }
         }
     }
 }

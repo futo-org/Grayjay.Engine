@@ -25,6 +25,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Xml.Linq;
 
 namespace Grayjay.Engine
@@ -51,6 +52,7 @@ namespace Grayjay.Engine
 
         private ResultCapabilities? _channelCapabilities = null;
         private ResultCapabilities? _searchCapabilities = null;
+        private List<string> _peekChannelTypes = null;
 
         public PluginConfig Config { get; private set; }
         public PluginDescriptor Descriptor { get; private set; }
@@ -73,7 +75,7 @@ namespace Grayjay.Engine
             }
         }
 
-
+        public event Action<GrayjayPlugin> BeforeInitialize;
         public event Action<PluginConfig, string> OnLog;
         public event Action<GrayjayPlugin> OnStopped;
 
@@ -127,7 +129,9 @@ namespace Grayjay.Engine
 
         public void Initialize()
         {
-            _engine = new V8ScriptEngine();
+            _engine = new V8ScriptEngine(V8ScriptEngineFlags.AddPerformanceObject);
+            SetupEngine(_engine);
+            BeforeInitialize?.Invoke(this);
             _engine.Execute(Resources.ScriptPolyfil);
             _engine.Execute(Resources.ScriptSource);
 
@@ -169,7 +173,8 @@ namespace Grayjay.Engine
                 HasGetChannelCapabilities = (bool)_engine.Evaluate("!!source.getChannelCapabilities"),
                 HasGetLiveEvents = (bool)_engine.Evaluate("!!source.getLiveEvents"),
                 HasGetLiveChatWindow = (bool)_engine.Evaluate("!!source.getLiveChatWindow"),
-                HasGetContentChapters = (bool)_engine.Evaluate("!!source.getContentChapters")
+                HasGetContentChapters = (bool)_engine.Evaluate("!!source.getContentChapters"),
+                HasPeekChannelContents = (bool)_engine.Evaluate("!!source.peekChannelContents")
             };
 
             _engine.Execute("plugin.config = " + SerializeConfig());
@@ -178,6 +183,40 @@ namespace Grayjay.Engine
             _activePlugins.AddOrUpdate(_engine, this, (key, obj) => this);
             IsInitialized = true;
         }
+
+        private void SetupEngine(V8ScriptEngine engine)
+        {
+            var timeoutIdGenerator = 0;
+            var timeouts = new ConcurrentDictionary<int, Timer>();
+            engine.Script.___setTimeout = new Func<ScriptObject, int, int>((func, delay) =>
+            {
+                var id = Interlocked.Increment(ref timeoutIdGenerator);
+                var timer = new Timer(_ => {
+                    timeouts.TryRemove(id, out var _);
+                    func.Invoke(false);
+                });
+                timer.Change(delay, Timeout.Infinite);
+                timeouts[id] = timer;
+                return id;
+            });
+            engine.Script.___clearTimeout = new Action<int>((id) =>
+            {
+                if (timeouts.TryRemove(id, out var timer))
+                    timer.Change(Timeout.Infinite, Timeout.Infinite);
+            });
+            engine.Execute(@"
+                function setTimeout(func, delay) {
+                    let args = Array.prototype.slice.call(arguments, 2);
+                    return ___setTimeout(func.bind(globalThis, ...args), delay || 0);
+                }
+            ");
+            engine.Execute(@"
+               function clearTimeout(id) {
+                    ___clearTimeout(id);
+                }
+            ");
+        }
+
         public Package GetPackage(string name)
         {
             switch (name)
@@ -415,6 +454,30 @@ namespace Grayjay.Engine
             {
                 content.ID.PluginID = Config.ID;
             });
+        });
+
+        public virtual List<string> GetPeekChannelTypes()
+        {
+            if (!Capabilities.HasPeekChannelContents)
+                return new List<string>();
+            try
+            {
+                if (_peekChannelTypes != null)
+                    return _peekChannelTypes;
+                var arr = EvaluateObject<List<string>>("source.getPeekChannelTypes()");
+                _peekChannelTypes = arr;
+                return arr ?? new List<string>();
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine("Peek channel contents getTypes failed");
+                return new List<string>();
+            }
+        }
+        public virtual List<PlatformContent> PeekChannelContents(string channelUrl, string type) => WithIsBusy(() =>
+        {
+            EnsureEnabled();
+            return EvaluateObject<List<PlatformContent>>($"source.peekChannelContents({SerializeParameter(channelUrl)}, {SerializeParameter(type)})");
         });
 
         public virtual IPager<PlatformComment> GetComments(string url) => WithIsBusy(() =>
@@ -808,6 +871,7 @@ namespace Grayjay.Engine
             public bool HasGetLiveEvents { get; set; }
             public bool HasGetLiveChatWindow { get; set; }
             public bool HasGetContentChapters { get; set; }
+            public bool HasPeekChannelContents { get; set; }
         }
     }
 
