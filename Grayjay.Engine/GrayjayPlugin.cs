@@ -41,7 +41,7 @@ namespace Grayjay.Engine
         private int _busyCount = 0;
         public bool IsBusy => _busyCount > 0;
 
-        public string ID => Config?.ID;
+        public virtual string ID => Config?.ID;
 
         private SourceAuth _auth;
         private SourceCaptcha _captcha;
@@ -248,9 +248,12 @@ namespace Grayjay.Engine
             Enable();
         }
 
-        public GrayjayPlugin GetCopy()
+        public virtual GrayjayPlugin GetCopy(bool privateCopy = false)
         {
-            return new GrayjayPlugin(Descriptor, _script, GetSavedState());
+            if(!privateCopy)
+                return new GrayjayPlugin(Descriptor, _script, GetSavedState());
+            else
+                return new GrayjayPlugin(Descriptor.Config, _script, _settings, GetSavedState());
         }
 
         [JSDocs(0, "enable", "source.enable(...)", "")]
