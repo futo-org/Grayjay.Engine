@@ -48,7 +48,7 @@ namespace Grayjay.Engine
 
         private string? _savedState = null;
 
-        private Dictionary<string, string?> _settings = null;
+        private Dictionary<string, string?> _settings => Descriptor?.Settings ?? new Dictionary<string, string>();
 
         private ResultCapabilities? _channelCapabilities = null;
         private ResultCapabilities? _searchCapabilities = null;
@@ -85,9 +85,8 @@ namespace Grayjay.Engine
         {
             Config = config;
             _script = script;
-            _settings = settings ?? new Dictionary<string, string?>();
             _savedState = savedState;
-            Descriptor = new PluginDescriptor(config);
+            Descriptor = new PluginDescriptor(config, null, null, settings ?? new Dictionary<string, string?>());
 
             HttpClient = new PluginHttpClient(this, null, _captcha);
             HttpClientAuth = new PluginHttpClient(this, _auth, _captcha);
@@ -97,7 +96,6 @@ namespace Grayjay.Engine
             Config = descriptor.Config;
             Descriptor = descriptor;
             _script = script;
-            _settings = descriptor.Settings ?? new Dictionary<string, string?>();
             _savedState = savedState;
 
             _auth = descriptor.GetAuth();
@@ -192,8 +190,20 @@ namespace Grayjay.Engine
             {
                 var id = Interlocked.Increment(ref timeoutIdGenerator);
                 var timer = new Timer(_ => {
-                    timeouts.TryRemove(id, out var _);
-                    func.Invoke(false);
+                    try
+                    {
+                        timeouts.TryRemove(id, out var _);
+                        func.Invoke(false);
+                    }
+                    catch(Exception ex) 
+                    {
+                        if (ex is ScriptException scriptEx)
+                            OnScriptException?.Invoke(Config, scriptEx);
+                        else
+                        {
+                            Console.WriteLine("Uncaught script exception in timeout callback: " + ex.Message);
+                        }
+                    }
                 });
                 timer.Change(delay, Timeout.Infinite);
                 timeouts[id] = timer;

@@ -178,7 +178,7 @@ namespace Grayjay.Engine.Packages
             {
                 Children = _node.ChildNodes.Select(x => new DOMNode(_package, x).ToNodeTree()).ToList(),
                 Name = _node.Name,
-                Value = OuterHtml,
+                Value = _node.InnerText,
                 Attributes = Attributes
             };
         }
