@@ -19,7 +19,7 @@ namespace Grayjay.Engine.Packages
         private GrayjayPlugin _plugin;
 
         [ScriptMember("buildVersion")]
-        public int buildVersion => 250;
+        public int buildVersion => 282;
         [ScriptMember("buildFlavor")]
         public string buildFlavor => "desktopStable";
         [ScriptMember("buildSpecVersion")]
@@ -46,6 +46,7 @@ namespace Grayjay.Engine.Packages
         public void toast(string str)
         {
             Console.WriteLine("Toast:" + str);
+            _plugin?.TriggerToast(str);
         }
 
 

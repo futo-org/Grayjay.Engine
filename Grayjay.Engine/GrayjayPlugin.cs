@@ -77,6 +77,7 @@ namespace Grayjay.Engine
 
         public event Action<GrayjayPlugin> BeforeInitialize;
         public event Action<PluginConfig, string> OnLog;
+        public event Action<PluginConfig, string> OnToast;
         public event Action<GrayjayPlugin> OnStopped;
 
         public event Action<PluginConfig, ScriptException> OnScriptException;
@@ -118,6 +119,11 @@ namespace Grayjay.Engine
         public void UpdateDescriptor(PluginDescriptor descriptor)
         {
             Descriptor = descriptor;
+        }
+
+        public void TriggerToast(string toast)
+        {
+            OnToast?.Invoke(Config, toast);
         }
 
         public V8ScriptEngine? GetUnderlyingEngine()

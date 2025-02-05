@@ -23,6 +23,11 @@ namespace Grayjay.Engine.Packages
 
         public override string VariableName => "http";
 
+        private static string[] WHITELISTED_RESPONSE_HEADERS = new string[]
+        {
+            "content-type", "date", "content-length", "last-modified", "etag", "cache-control", "content-encoding", "content-disposition", "connection"
+        };
+
 
         private ManagedHttpClient _client;
         private ManagedHttpClient _clientAuth;
@@ -55,22 +60,75 @@ namespace Grayjay.Engine.Packages
 
         }
 
-        [ScriptMember("request")]
-        public HttpResponse Request(RequestDescriptor descriptor)
+
+        public HttpResponse RequestInternal(RequestDescriptor descriptor)
         {
             Stopwatch w = new Stopwatch();
             w.Start();
             var client = (descriptor.UseAuth) ? _clientAuth : _client;
             ManagedHttpClient.Response resp = client.Request(descriptor.Method, descriptor.Url, descriptor.Body, descriptor.Headers);
             HttpResponse result = (descriptor.ReturnType == ReturnType.Bytes) ?
-                 (HttpResponse)new HttpJSBytesResponse(_plugin, resp.Code, resp.Body.AsBytes(), new Dictionary<string, List<string>>(), resp.Url) :
-                 (HttpResponse)new HttpStringResponse(resp.Code, resp.Body.AsString(), new Dictionary<string, List<string>>(), resp.Url);
+                 (HttpResponse)new HttpJSBytesResponse(_plugin, resp.Code, resp.Body.AsBytes(), SanitizeResponseHeaders(resp.Headers, descriptor.UseAuth || !_plugin.Config.AllowAllHttpHeaderAccess), resp.Url) :
+                 (HttpResponse)new HttpStringResponse(resp.Code, resp.Body.AsString(), SanitizeResponseHeaders(resp.Headers, descriptor.UseAuth || !_plugin.Config.AllowAllHttpHeaderAccess), resp.Url);
 
             w.Stop();
             if(LogRequests)
                 Console.WriteLine($"PackageHttp.Request [{descriptor.Url}]({result.Code}) {w.ElapsedMilliseconds}ms");
             return result;
         }
+
+        [ScriptMember("request")]
+        public object Request(string method, string url, ScriptObject headers = null, bool useAuth = false, bool useByteResponses = false)
+        {
+            return RequestInternal(new RequestDescriptor()
+            {
+                Method = method,
+                Url = url,
+                Headers = headers.ToDictionary<string>(),
+                UseAuth = useAuth,
+                ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
+            });
+        }
+        [ScriptMember("requestWithBody")]
+        public object RequestWithBody(string method, string url, object body, ScriptObject headers = null, bool useAuth = false, bool useByteResponses = false)
+        {
+            if (body is string)
+                return RequestInternal(new RequestDescriptor()
+                {
+                    Method = method,
+                    Url = url,
+                    Headers = headers.ToDictionary<string>(),
+                    UseAuth = useAuth,
+                    Body = (string)body,
+                    ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
+                });
+            else if (body is ITypedArray tbody)
+            {
+                return RequestInternal(new RequestDescriptor()
+                {
+                    Method = method,
+                    Url = url,
+                    Headers = headers.ToDictionary<string>(),
+                    UseAuth = useAuth,
+                    Body = tbody.ArrayBuffer.GetBytes(),
+                    ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
+                });
+            }
+            else if (body is JArray jabody)
+            {
+                return RequestInternal(new RequestDescriptor()
+                {
+                    Method = method,
+                    Url = url,
+                    Headers = headers.ToDictionary<string>(),
+                    UseAuth = useAuth,
+                    Body = jabody.Select(x => (byte)((int)x)).ToArray(),
+                    ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
+                });
+            }
+            throw new NotImplementedException();
+        }
+
         [ScriptMember("batch")]
         public HttpBatchBuilder Batch()
         {
@@ -81,7 +139,7 @@ namespace Grayjay.Engine.Packages
         [ScriptMember]
         public object GET(string url, ScriptObject headers, bool auth = false, bool useByteResponses = false)
         {
-            return Request(new RequestDescriptor()
+            return RequestInternal(new RequestDescriptor()
             {
                 Method = "GET",
                 Url = url,
@@ -94,7 +152,7 @@ namespace Grayjay.Engine.Packages
         public object POST(string url, object body, IScriptObject headers, bool auth = false, bool useByteResponses = false)
         {
             if (body is string)
-                return Request(new RequestDescriptor()
+                return RequestInternal(new RequestDescriptor()
                 {
                     Method = "POST",
                     Url = url,
@@ -105,7 +163,7 @@ namespace Grayjay.Engine.Packages
                 });
             else if(body is ITypedArray tbody)
             {
-                return Request(new RequestDescriptor()
+                return RequestInternal(new RequestDescriptor()
                 {
                     Method = "POST",
                     Url = url,
@@ -117,7 +175,7 @@ namespace Grayjay.Engine.Packages
             }
             else if(body is JArray jabody)
             {
-                return Request(new RequestDescriptor()
+                return RequestInternal(new RequestDescriptor()
                 {
                     Method = "POST",
                     Url = url,
@@ -131,6 +189,44 @@ namespace Grayjay.Engine.Packages
         }
 
 
+        private static Dictionary<string, List<string>> SanitizeResponseHeaders(Dictionary<string, string> headers, bool onlyWhitelisted = false)
+        {
+            return SanitizeResponseHeaders(headers.ToDictionary(x => x.Key, y =>
+            {
+                if (y.Key.ToLower() == "set-cookie")
+                    return y.Value.Split(' ').Select(y => y.Trim()).ToList();
+                else
+                    return new List<string>()
+                    {
+                        y.Value
+                    };
+            }), onlyWhitelisted);
+        }
+        private static Dictionary<string, List<string>> SanitizeResponseHeaders(Dictionary<string, List<string>> headers, bool onlyWhitelisted = false)
+        {
+            Dictionary<string, List<string>> results = new Dictionary<string, List<string>>();
+            if (onlyWhitelisted)
+            {
+                foreach(var header in headers)
+                {
+                    if (WHITELISTED_RESPONSE_HEADERS.Contains(header.Key.ToLower()))
+                        results.Add(header.Key, header.Value);
+                }
+            }
+            else
+            {
+                foreach(var header in headers)
+                {
+                    if (header.Key.ToLower() == "set-cookie" && !header.Value.Any(x => x.ToLower().Contains("httponly")))
+                        results.Add(header.Key, header.Value.Where(x => !x.ToLower().Contains("httponly")).ToList());
+                    else
+                        results.Add(header.Key, header.Value);
+                }
+            }
+
+            return results;
+        }
+
 
         [NoDefaultScriptAccess]
         public class HttpResponse
@@ -139,8 +235,9 @@ namespace Grayjay.Engine.Packages
             public int Code { get; set; }
             [ScriptMember("isOk")]
             public bool IsOk => Code >= 200 && Code < 300;
-            [ScriptMember("headers")]
             public Dictionary<string, List<string>> Headers { get; private set; } = new Dictionary<string, List<string>>();
+            [ScriptMember("headers")]
+            public PropertyBag HeadersForScript { get; private set; }
 
             [ScriptMember("url")]
             public string Url { get; set; }
@@ -152,6 +249,9 @@ namespace Grayjay.Engine.Packages
             {
                 Code = code;
                 Headers = headers ?? new Dictionary<string, List<string>>();
+                HeadersForScript = new PropertyBag();
+                foreach (var header in Headers)
+                    HeadersForScript.Add(header.Key, header.Value);
                 Url = url;
             }
         }
@@ -248,7 +348,7 @@ namespace Grayjay.Engine.Packages
             {
                 return _descriptors.AsParallel()
                     .AsOrdered()
-                    .Select(x => _package.Request(x))
+                    .Select(x => _package.RequestInternal(x))
                     .ToScriptArray();
             }
         }

@@ -40,6 +40,11 @@ namespace Grayjay.Engine
         public List<int> SupportedClaimTypes { get; set; }
         public int PrimaryClaimFieldType { get; set; }
 
+        public string DeveloperSubmitUrl { get; set; } //Not implemented yet
+        public bool AllowAllHttpHeaderAccess { get; set; }
+        public int MaxDownloadParallelism { get; set; } //Not implemented yet
+
+
         public List<PluginSetting> Settings { get; set; } = new List<PluginSetting>();
 
         private bool? _allowAnywhereVal = null;
