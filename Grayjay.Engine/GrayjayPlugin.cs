@@ -150,6 +150,15 @@ namespace Grayjay.Engine
                 pack.Initialize(_engine);
                 _packages.Add(pack);
             }
+            foreach (string package in Config.PackagesOptional ?? new List<string>())
+            {
+                Package pack = GetPackage(package, true);
+                if (pack != null)
+                {
+                    pack.Initialize(_engine);
+                    _packages.Add(pack);
+                }
+            }
 
 
             if (!string.IsNullOrEmpty(Config.ScriptPublicKey) && !(Descriptor?.AppSettings?.Advanced?.AllowTamper ?? false))
@@ -233,7 +242,7 @@ namespace Grayjay.Engine
             ");
         }
 
-        public Package GetPackage(string name)
+        public Package GetPackage(string name, bool allowNull = false)
         {
             switch (name)
             {
@@ -243,8 +252,12 @@ namespace Grayjay.Engine
                     return new PackageUtilities(this);
                 case "DOMParser":
                     return new PackageDOMParser(this);
+                case "JSDOM":
+                    return new PackageJSDOM(this);
 
                 default:
+                    if (allowNull)
+                        return null;
                     throw new NotImplementedException($"Package [{name}] is not implemented");
             }
         }

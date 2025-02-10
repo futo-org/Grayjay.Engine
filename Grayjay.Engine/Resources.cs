@@ -12,6 +12,7 @@ namespace Grayjay.Engine
     {
         public static string ScriptPolyfil { get; private set; } = ReadStringResource("ScriptDeps.polyfil.js");
         public static string ScriptSource { get; private set; } = ReadStringResource("ScriptDeps.source.js");
+        public static string ScriptJSDOM { get; private set; } = ReadStringResource("ScriptDeps.JSDOM.js");
 
 
         public static string[] GetResourceNames()

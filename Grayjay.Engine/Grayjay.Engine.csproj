@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="ScriptDeps\JSDOM.js" />
     <None Remove="ScriptDeps\polyfil.js" />
     <None Remove="ScriptDeps\source.js" />
   </ItemGroup>
@@ -20,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="ScriptDeps\JSDOM.js" />
     <EmbeddedResource Include="ScriptDeps\polyfil.js" />
     <EmbeddedResource Include="ScriptDeps\source.js" />
   </ItemGroup>

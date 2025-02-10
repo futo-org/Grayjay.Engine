@@ -25,6 +25,7 @@ namespace Grayjay.Engine
 
         public List<string> AllowUrls { get; set; }
         public List<string> Packages { get; set; } = new List<string>();
+        public List<string> PackagesOptional { get; set; } = new List<string>();
 
         public string ScriptSignature { get; set; }
         public string ScriptPublicKey { get; set; }
