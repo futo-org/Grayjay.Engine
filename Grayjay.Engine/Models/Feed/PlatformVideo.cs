@@ -23,6 +23,10 @@ namespace Grayjay.Engine.Models.Feed
         [V8Property("isLive")]
         public virtual bool IsLive { get; set; }
 
+
+        public Dictionary<string, object> Metadata { get; set; } = new Dictionary<string, object>();
+
+
         public PlatformVideo(IJavaScriptObject obj): base(obj)
         {
             
@@ -30,6 +34,12 @@ namespace Grayjay.Engine.Models.Feed
         public PlatformVideo() : base(null)
         {
 
+        }
+
+        public PlatformVideo AddMetadata(string name, object value)
+        {
+            Metadata[name] = value;
+            return this;
         }
     }
 }

@@ -131,12 +131,12 @@ namespace Grayjay.Engine
                 var parts = queryDomain.ToLower().Split(".");
 
                 if (parts.Length < 3)
-                    throw new InvalidOperationException("Illegal use of wildcards on First-Level-Domain (" + queryDomain + ")");
+                    throw new InvalidOperationException($"Illegal use of wildcards on First-Level-Domain ({queryDomain}) while checking domain ({domain})");
                 if(parts.Length >= 3)
                 {
                     var isSLD = _slds.Contains("." + parts[parts.Length - 2] + "." + parts[parts.Length - 1]);
                     if (isSLD && parts.Length <= 3)
-                        throw new InvalidOperationException("Illegal use of wildcards on Second-Level-Domain (" + queryDomain + ")");
+                        throw new InvalidOperationException($"Illegal use of wildcards on Second-Level-Domain ({queryDomain}) while checking domain ({domain})");
                 }
 
                 return domain.EndsWith(queryDomain) || domain == queryDomain.TrimStart('.');
