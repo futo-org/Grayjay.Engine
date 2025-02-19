@@ -9,13 +9,13 @@ namespace Grayjay.Engine.Pagers
 {
     public class RefreshDistributionContentPager<T> : MultiRefreshPager<T>
     {
-        public RefreshDistributionContentPager(IEnumerable<IPager<T>> pagers, IEnumerable<Task<IPager<T>>> pendingPagers, IEnumerable<IPager<T>> placeholderPager, Action<IPager<T>> onChanged = null) : base(pagers, pendingPagers, placeholderPager, onChanged)
+        public RefreshDistributionContentPager(IEnumerable<IPager<T>> pagers, IEnumerable<Task<IPager<T>>> pendingPagers, IEnumerable<IPager<T>> placeholderPager, Action<IPager<T>> onChanged = null, int pageSize = 20) : base(pagers, pendingPagers, placeholderPager, onChanged, pageSize)
         {
         }
 
         protected override IPager<T> RecreatePager(List<IPager<T>> pagers)
         {
-            return new MultiDistributionPager<T>(pagers.ToDictionary(x => x, y => 1f), false, 20);
+            return new MultiDistributionPager<T>(pagers.ToDictionary(x => x, y => 1f), false, _pageSize);
         }
     }
 }

@@ -23,9 +23,13 @@ namespace Grayjay.Engine.Pagers
         public event Action<IPager<T>> OnPagerChanged;
         public event Action<Exception> OnPagerError;
 
+        protected int _pageSize = 20;
 
-        public MultiRefreshPager(IEnumerable<IPager<T>> pagers, IEnumerable<Task<IPager<T>>> pendingPagers, IEnumerable<IPager<T>> placeholderPager, Action<IPager<T>> onChanged = null)
+
+        public MultiRefreshPager(IEnumerable<IPager<T>> pagers, IEnumerable<Task<IPager<T>>> pendingPagers, IEnumerable<IPager<T>> placeholderPager, Action<IPager<T>> onChanged = null, int pageSize = 20)
         {
+            _pageSize = pageSize;
+
             if (onChanged != null)
                 OnPagerChanged += onChanged;
 
