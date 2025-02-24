@@ -129,6 +129,10 @@ namespace Grayjay.Engine.Pagers
                             //TODO: This should never happen, has to be fixed later
                             Console.WriteLine("Expected item from pager but no page found?");
                         }
+                        catch(Exception ex)
+                        {
+                            Console.WriteLine($"Other exception in subpager: [{ex.GetType().Name}] {ex.Message}");
+                        }
                     }
 
                     if (item != null)
