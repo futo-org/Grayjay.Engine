@@ -1,5 +1,4 @@
-﻿using Grayjay.ClientServer.Threading;
-using Grayjay.Engine.Exceptions;
+﻿using Grayjay.Engine.Exceptions;
 using Grayjay.Engine.Models.Capabilities;
 using Grayjay.Engine.Models.Channel;
 using Grayjay.Engine.Models.Comments;
@@ -35,8 +34,6 @@ namespace Grayjay.Engine
 {
     public class GrayjayPlugin : IDisposable
     {
-        public static ManagedThreadPool ThreadPool { get; private set; } = new ManagedThreadPool(8);
-        public static void SetThreadPoolCount(int count) =>  ThreadPool.AdjustThreadCount(count);
 
         private static ConcurrentDictionary<ScriptEngine, GrayjayPlugin> _activePlugins = new ConcurrentDictionary<ScriptEngine, GrayjayPlugin>();
 
@@ -356,7 +353,6 @@ namespace Grayjay.Engine
             EnsureEnabled();
             return EvaluatePager<PlatformContent>($"source.getHome()", (content) => { content.ID.PluginID = Config.ID; });
         }
-        public Task<IPager<PlatformContent>> GetHomeAsync() => RunOnThreadPool(() => GetHome());
 
         public virtual PlatformPlaylistDetails GetPlaylist(string url)
         {
@@ -761,25 +757,6 @@ namespace Grayjay.Engine
                 }
             }
         }
-
-        private Task<T> RunOnThreadPool<T>(Func<T> handle, ManagedThreadPool pool = null)
-        {
-            pool = pool ?? ThreadPool;
-            TaskCompletionSource<T> source = new TaskCompletionSource<T>();
-            pool.Run(() =>
-            {
-                try
-                {
-                    source.SetResult(handle());
-                }
-                catch(Exception ex)
-                {
-                    source.SetException(ex);
-                }
-            });
-            return source.Task;
-        }
-
 
         public void Dispose()
         {
