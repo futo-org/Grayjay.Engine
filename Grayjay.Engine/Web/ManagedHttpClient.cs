@@ -114,6 +114,8 @@ namespace Grayjay.Engine.Web
                 //respTask.Wait();
                 HttpResponseMessage resp = respTask.GetAwaiter().GetResult();//respTask.Result;
 
+                AfterRequest(resp);
+
                 var hds = resp.Headers.ToDictionary(x => x.Key.ToLower(), y => string.Join(", ", y.Value));
                 foreach(var header in resp.Content.Headers)
                 {
