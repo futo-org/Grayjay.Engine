@@ -88,6 +88,9 @@ namespace Grayjay.Engine
 
         public event Action<PluginConfig, ScriptException> OnScriptException;
 
+        public event Action<PluginConfig, string> OnBusyCallStart;
+        public event Action<PluginConfig, string, long> OnBusyCallEnd;
+
         public GrayjayPlugin(PluginConfig config, string script, Dictionary<string, string?>? settings = null, string savedState = null)
         {
             Config = config;
@@ -349,17 +352,17 @@ namespace Grayjay.Engine
         }
 
         [JSDocs(1, "getHome", "source.getHome()", "")]
-        public virtual IPager<PlatformContent> GetHome()
+        public virtual IPager<PlatformContent> GetHome() => WithIsBusy(() =>
         {
             EnsureEnabled();
             return EvaluatePager<PlatformContent>($"source.getHome()", (content) => { content.ID.PluginID = Config.ID; });
-        }
+        });
 
-        public virtual PlatformPlaylistDetails GetPlaylist(string url)
+        public virtual PlatformPlaylistDetails GetPlaylist(string url) => WithIsBusy(() =>
         {
             EnsureEnabled();
             return EvaluateObject<PlatformPlaylistDetails>($"source.getPlaylist({SerializeParameter(url)})");
-        }
+        });
 
         public virtual ResultCapabilities GetSearchCapabilities()
         {
@@ -386,57 +389,58 @@ namespace Grayjay.Engine
                 };
             }
         }
-        public virtual IPager<PlatformContent> Search(string query, string? type = null, string? order = null, Dictionary<string, string[]>? filters = null)
+        public virtual IPager<PlatformContent> Search(string query, string? type = null, string? order = null, Dictionary<string, string[]>? filters = null) => WithIsBusy(() =>
         {
             EnsureEnabled();
             return EvaluatePager<PlatformContent>($"source.search({SerializeParameter(query)}, {SerializeParameter(type)}, {SerializeParameter(order)}, {SerializeParameter(filters)})", (content) => { content.ID.PluginID = Config.ID; });
-        }
+        });
 
-        public virtual IPager<PlatformAuthorLink> SearchChannels(string query, string? type = null, string? order = null, Dictionary<string, string[]>? filters = null)
+        public virtual IPager<PlatformAuthorLink> SearchChannels(string query, string? type = null, string? order = null, Dictionary<string, string[]>? filters = null) => WithIsBusy(() =>
         {
             EnsureEnabled();
             return EvaluatePager<PlatformAuthorLink>($"source.searchChannels({SerializeParameter(query)}, {SerializeParameter(type)}, {SerializeParameter(order)}, {SerializeParameter(filters)})", (content) => { content.ID.PluginID = Config.ID; });
-        }
-        public virtual IPager<PlatformContent> SearchChannelsAsContent(string query)
+        });
+        public virtual IPager<PlatformContent> SearchChannelsAsContent(string query) => WithIsBusy(() =>
         {
             EnsureEnabled();
-            return EvaluatePager<PlatformAuthorLink, PlatformContent>($"source.searchChannels({SerializeParameter(query)})", (content) => { 
+            return EvaluatePager<PlatformAuthorLink, PlatformContent>($"source.searchChannels({SerializeParameter(query)})", (content) =>
+            {
                 content.ID.PluginID = Config.ID;
                 return new PlatformAuthorContent(content);
             });
-        }
+        });
 
-        public virtual IPager<PlatformContent> SearchPlaylists(string query)
+        public virtual IPager<PlatformContent> SearchPlaylists(string query) => WithIsBusy(() =>
         {
             EnsureEnabled();
             return EvaluatePager<PlatformContent>($"source.searchPlaylists({SerializeParameter(query)})", (content) => { content.ID.PluginID = Config.ID; });
-        }
+        });
 
-        public virtual List<string> SearchSuggestions(string query)
+        public virtual List<string> SearchSuggestions(string query) => WithIsBusy(() =>
         {
             EnsureEnabled();
             return EvaluateObject<List<string>>($"source.searchSuggestions({SerializeParameter(query)})");
-        }
+        });
 
         public virtual bool IsContentDetailsUrl(string url)
         {
             EnsureEnabled();
             return (bool)_engine.Evaluate($"source.isContentDetailsUrl({SerializeParameter(url)})");
         }
-        public virtual IPlatformContentDetails GetContentDetails(string url)
+        public virtual IPlatformContentDetails GetContentDetails(string url) => WithIsBusy(() =>
         {
             EnsureEnabled();
             var result = EvaluateObject<IPlatformContentDetails>($"source.getContentDetails({SerializeParameter(url)})");
             result.ID.PluginID = Config.ID;
             return result;
-        }
-        public virtual List<Chapter> GetContentChapters(string url)
+        });
+        public virtual List<Chapter> GetContentChapters(string url) => WithIsBusy(() =>
         {
             if (!Capabilities.HasGetContentChapters)
                 return new List<Chapter>();
             EnsureEnabled();
             return EvaluateObject<List<Chapter>>($"source.getContentChapters({SerializeParameter(url)})");
-        }
+        });
 
         public virtual LiveChatWindowDescriptor GetLiveChatWindow(string url)
         {
@@ -455,13 +459,13 @@ namespace Grayjay.Engine
                 return false;
             return (bool)_engine.Evaluate($"source.isPlaylistUrl({SerializeParameter(url)})");
         }
-        public virtual PlatformChannel GetChannel(string url)
+        public virtual PlatformChannel GetChannel(string url) => WithIsBusy(() =>
         {
             EnsureEnabled();
             var channel = EvaluateObject<PlatformChannel>($"source.getChannel({SerializeParameter(url)})");
             channel.ID.PluginID = Config.ID;
             return channel;
-        }
+        });
 
         public virtual ResultCapabilities GetChannelCapabilities()
         {
@@ -742,8 +746,13 @@ namespace Grayjay.Engine
 
         private T WithIsBusy<T>(Func<T> work)
         {
+            Stopwatch sw = (OnBusyCallEnd != null) ? Stopwatch.StartNew() : null;
+            string caller = (OnBusyCallStart != null || OnBusyCallEnd != null) ? (new System.Diagnostics.StackTrace()).GetFrame(1).GetMethod().Name : null;
+
             try
             {
+                if (OnBusyCallStart != null) OnBusyCallStart?.Invoke(Config, caller);
+
                 lock (_busyLock)
                 {
                     _busyCount++;
@@ -756,6 +765,9 @@ namespace Grayjay.Engine
                 {
                     _busyCount--;
                 }
+
+                if (OnBusyCallEnd != null) OnBusyCallEnd?.Invoke(Config, caller, (long)sw.Elapsed.TotalMilliseconds);
+                sw?.Stop();
             }
         }
 
