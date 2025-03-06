@@ -225,7 +225,7 @@ namespace Grayjay.Engine
                             OnScriptException?.Invoke(Config, scriptEx);
                         else
                         {
-                            Console.WriteLine("Uncaught script exception in timeout callback: " + ex.Message);
+                            Logger.Error<GrayjayPlugin>("Uncaught script exception in timeout callback", ex);
                         }
                     }
                 });
@@ -382,7 +382,7 @@ namespace Grayjay.Engine
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed [{Config.Name}].getSearchCapabilities: {ex.Message}");
+                Logger.Error<GrayjayPlugin>($"Failed [{Config.Name}].getSearchCapabilities", ex);
                 return new ResultCapabilities()
                 {
                     Types = new List<string>() { ResultCapabilities.TYPE_MIXED }
@@ -482,7 +482,7 @@ namespace Grayjay.Engine
             }
             catch(Exception ex)
             {
-                Console.WriteLine($"Failed [{Config.Name}].getChannelCapabilities: {ex.Message}");
+                Logger.Error<GrayjayPlugin>($"Failed [{Config.Name}].getChannelCapabilities", ex);
                 return new ResultCapabilities()
                 {
                     Types = new List<string>() { ResultCapabilities.TYPE_MIXED }
@@ -520,7 +520,7 @@ namespace Grayjay.Engine
             }
             catch(Exception ex)
             {
-                Console.WriteLine("Peek channel contents getTypes failed");
+                Logger.Error<GrayjayPlugin>("Peek channel contents getTypes failed", ex);
                 return new List<string>();
             }
         }

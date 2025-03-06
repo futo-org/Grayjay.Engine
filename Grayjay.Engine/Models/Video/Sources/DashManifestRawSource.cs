@@ -155,7 +155,7 @@ namespace Grayjay.Engine.Models.Video.Sources
             if (videoDash == null) return null;
 
             genWatch.Stop();
-            Console.WriteLine("Generated in: " + genWatch.Elapsed.TotalMilliseconds + "ms");
+            Logger.Info<DashManifestRawSource>("Generated in: " + genWatch.Elapsed.TotalMilliseconds + "ms");
 
             var audioAdaptationSet = ADAPTATION_SET_REGEX.Match(audioDash);
             if (audioAdaptationSet != null && audioAdaptationSet.Success)

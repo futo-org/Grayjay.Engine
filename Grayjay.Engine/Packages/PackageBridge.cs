@@ -1,4 +1,6 @@
-﻿using Grayjay.Engine.Web;
+﻿using Grayjay.Engine.Models.Video.Additions;
+using Grayjay.Engine.Models.Video.Sources;
+using Grayjay.Engine.Web;
 using Microsoft.ClearScript;
 using Microsoft.ClearScript.V8;
 using System;
@@ -45,7 +47,7 @@ namespace Grayjay.Engine.Packages
         [ScriptMember]
         public void toast(string str)
         {
-            Console.WriteLine("Toast:" + str);
+            Logger.Info<PackageBridge>("Toast:" + str);
             _plugin?.TriggerToast(str);
         }
 

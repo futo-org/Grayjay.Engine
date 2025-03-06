@@ -66,7 +66,7 @@ namespace Grayjay.Engine.Models.Video.Additions
             finally
             {
                 stopwatch.Stop();
-                Console.WriteLine("RequestExecutor executeRequest finished in " + stopwatch.Elapsed.TotalMilliseconds + "ms");
+                Logger.Info<RequestExecutor>("RequestExecutor executeRequest finished in " + stopwatch.Elapsed.TotalMilliseconds + "ms");
             }
         }
 

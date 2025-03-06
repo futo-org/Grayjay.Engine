@@ -1,4 +1,5 @@
-﻿using Grayjay.Engine.Pagers.Exceptions;
+﻿using Grayjay.Engine.Models.Video.Sources;
+using Grayjay.Engine.Pagers.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -52,11 +53,11 @@ namespace Grayjay.Engine.Pagers
 
         public void NextPage()
         {
-            Console.WriteLine("Load next page");
+            Logger.Info<MultiPager<T>>("Load next page");
             if (!_didInitialize)
                 throw new InvalidOperationException("Call initialize on MultiVideoPager before using it");
             LoadNextPage();
-            Console.WriteLine($"New results: {_currentResults.Length}");
+            Logger.Info<MultiPager<T>>($"New results: {_currentResults.Length}");
         }
 
         public T[] GetResults()
@@ -106,14 +107,14 @@ namespace Grayjay.Engine.Pagers
                         {
                             item = pager.GetCurrentItem();
                         }
-                        catch (NoNextPageException)
+                        catch (NoNextPageException ex)
                         {
                             //TODO: This should never happen, has to be fixed later
-                            Console.WriteLine("Expected item from pager but no page found?");
+                            Logger.Error<MultiPager<T>>("Expected item from pager but no page found?", ex);
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"Failed to fetch page for pager, exception: {ex.Message}");
+                            Logger.Error<MultiPager<T>>($"Failed to fetch page for pager", ex);
                             _failedPagers.Add(pager.GetPager());
                             exceptions[pager.GetPager()] = ex;
                         }
@@ -124,14 +125,14 @@ namespace Grayjay.Engine.Pagers
                         {
                             item = pager.GetCurrentItem();
                         }
-                        catch (NoNextPageException)
+                        catch (NoNextPageException ex)
                         {
                             //TODO: This should never happen, has to be fixed later
-                            Console.WriteLine("Expected item from pager but no page found?");
+                            Logger.Error<MultiPager<T>>("Expected item from pager but no page found?", ex);
                         }
                         catch(Exception ex)
                         {
-                            Console.WriteLine($"Other exception in subpager: [{ex.GetType().Name}] {ex.Message}");
+                            Logger.Info<MultiPager<T>>($"Other exception in subpager", ex);
                         }
                     }
 

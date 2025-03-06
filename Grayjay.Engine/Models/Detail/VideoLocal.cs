@@ -72,7 +72,7 @@ namespace Grayjay.Engine.Models.Detail
                 }
                 catch(Exception ex)
                 {
-                    Console.WriteLine($"Failed to delete download {ex.Message}");
+                    Logger.Error<VideoLocal>($"Failed to delete download", ex);
                 }
             }
             foreach(var audio in AudioSources)
@@ -83,7 +83,7 @@ namespace Grayjay.Engine.Models.Detail
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Failed to delete download {ex.Message}");
+                    Logger.Error<VideoLocal>($"Failed to delete download", ex);
                 }
             }
         }

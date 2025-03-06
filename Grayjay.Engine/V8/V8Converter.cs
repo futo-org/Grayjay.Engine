@@ -163,7 +163,7 @@ namespace Grayjay.Engine.V8
                     }
                     catch(Exception ex)
                     {
-                        Console.WriteLine($"FAILED TO PARSE VALUE ON {t.Name} (Value: {obj})");
+                        Logger.Error(nameof(V8Converter), $"FAILED TO PARSE VALUE ON {t.Name} (Value: {obj})");
                         value = null;
                     }
                 }
@@ -182,7 +182,7 @@ namespace Grayjay.Engine.V8
                 }
                 catch(Exception ex)
                 {
-                    Console.WriteLine($"FAILED TO PARSE VALUE ON {t.Name} (Value: {obj}): " + ex.ToString());
+                    Logger.Error(nameof(V8Converter), $"FAILED TO PARSE VALUE ON {t.Name} (Value: {obj}): ", ex);
                     value = null;
                 }
 

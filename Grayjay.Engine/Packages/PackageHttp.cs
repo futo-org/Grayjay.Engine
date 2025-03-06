@@ -1,4 +1,5 @@
-﻿using Grayjay.Engine.Web;
+﻿using Grayjay.Engine.Models.Video.Sources;
+using Grayjay.Engine.Web;
 using Microsoft.ClearScript;
 using Microsoft.ClearScript.JavaScript;
 using Microsoft.ClearScript.V8;
@@ -19,8 +20,6 @@ namespace Grayjay.Engine.Packages
     [NoDefaultScriptAccess]
     public class PackageHttp: Package
     {
-        public static bool LogRequests = true;
-
         public override string VariableName => "http";
 
         private static string[] WHITELISTED_RESPONSE_HEADERS = new string[]
@@ -72,8 +71,8 @@ namespace Grayjay.Engine.Packages
                  (HttpResponse)new HttpStringResponse(resp.Code, resp.Body.AsString(), SanitizeResponseHeaders(resp.Headers, descriptor.UseAuth || !_plugin.Config.AllowAllHttpHeaderAccess), resp.Url);
 
             w.Stop();
-            if(LogRequests)
-                Console.WriteLine($"PackageHttp.Request [{descriptor.Url}]({result.Code}) {w.ElapsedMilliseconds}ms");
+            if (Logger.WillLog(LogLevel.Debug))
+                Logger.Debug<PackageHttp>($"PackageHttp.Request [{descriptor.Url}]({result.Code}) {w.ElapsedMilliseconds}ms");
             return result;
         }
 
