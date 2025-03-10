@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using static Grayjay.Engine.Packages.PackageHttp;
 
@@ -84,13 +85,13 @@ namespace Grayjay.Engine.Web
                 */
                 var req = new HttpRequestMessage(new HttpMethod(method), url);
                 req.Version = HttpVersion.Version20;
-                
+
                 foreach (var header in headers)
                     req.Headers.TryAddWithoutValidation(header.Key, header.Value);
 
                 BeforeRequest(req);
 
-                if(body != null)
+                if (body != null)
                 {
                     var contentType = headers.FirstOrDefault(x => x.Key.ToLower() == "content-type");
                     if (body is string bodyStr)
@@ -109,10 +110,8 @@ namespace Grayjay.Engine.Web
                     else throw new NotImplementedException("Unsupported http body type: " + (body?.GetType()?.ToString() ?? ""));
                 }
 
-                Task<HttpResponseMessage> respTask = _client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
-                //TODO: Determine if there is a more optimal way to keep this context synchronous. For now this is the safest.
-                //respTask.Wait();
-                HttpResponseMessage resp = respTask.GetAwaiter().GetResult();//respTask.Result;
+                HttpResponseMessage resp = _client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead).Result;
+
 
                 AfterRequest(resp);
 
