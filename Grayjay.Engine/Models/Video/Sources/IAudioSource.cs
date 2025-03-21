@@ -17,6 +17,7 @@ namespace Grayjay.Engine.Models.Video.Sources
         int Bitrate { get; }
         int Duration { get; }
         bool Priority { get; }
+        bool Original { get; }
 
         public string? Language { get; set; }
 

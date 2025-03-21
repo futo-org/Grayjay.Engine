@@ -43,6 +43,7 @@ namespace Grayjay.Engine.Models.Video.Sources
         public int Bitrate { get; set; }
         public int Duration { get; set; }
         public bool Priority { get; set; }
+        public bool Original { get; set; }
         public string? Language { get; set; }
 
         public AudioSourceDescription() { }

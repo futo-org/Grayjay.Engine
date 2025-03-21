@@ -13,6 +13,7 @@ namespace Grayjay.Engine.Models.Video.Sources
 
         public int Duration { get; set; }
         public bool Priority { get; set; }
+        public bool Original { get; set; }
 
         public int Bitrate { get; set; }
 

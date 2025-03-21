@@ -14,6 +14,7 @@ using Microsoft.ClearScript;
 using Microsoft.ClearScript.JavaScript;
 using Microsoft.ClearScript.V8;
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.SqlTypes;
@@ -196,7 +197,9 @@ namespace Grayjay.Engine
                 HasGetLiveEvents = (bool)_engine.Evaluate("!!source.getLiveEvents"),
                 HasGetLiveChatWindow = (bool)_engine.Evaluate("!!source.getLiveChatWindow"),
                 HasGetContentChapters = (bool)_engine.Evaluate("!!source.getContentChapters"),
-                HasPeekChannelContents = (bool)_engine.Evaluate("!!source.peekChannelContents")
+                HasPeekChannelContents = (bool)_engine.Evaluate("!!source.peekChannelContents"),
+                HasGetContentRecommendations = (bool)_engine.Evaluate("!!source.getContentRecommendations"),
+                HasGetChannelPlaylists = (bool)_engine.Evaluate("!!source.getChannelPlaylists")
             };
 
             _engine.Execute("plugin.config = " + SerializeConfig());
@@ -389,12 +392,23 @@ namespace Grayjay.Engine
                 };
             }
         }
+
+        [JSDocs(2, "search", "source.search()", "")]
+        [JSDocsParameter("query", "", 0)]
+        [JSDocsParameter("type", "", 1)]
+        [JSDocsParameter("order", "", 2)]
+        [JSDocsParameter("filters", "", 3)]
         public virtual IPager<PlatformContent> Search(string query, string? type = null, string? order = null, Dictionary<string, string[]>? filters = null) => WithIsBusy(() =>
         {
             EnsureEnabled();
             return EvaluatePager<PlatformContent>($"source.search({SerializeParameter(query)}, {SerializeParameter(type)}, {SerializeParameter(order)}, {SerializeParameter(filters)})", (content) => { content.ID.PluginID = Config.ID; });
         });
 
+        [JSDocs(3, "searchChannels", "source.searchChannels()", "")]
+        [JSDocsParameter("query", "", 0)]
+        [JSDocsParameter("type", "", 1)]
+        [JSDocsParameter("order", "", 2)]
+        [JSDocsParameter("filters", "", 3)]
         public virtual IPager<PlatformAuthorLink> SearchChannels(string query, string? type = null, string? order = null, Dictionary<string, string[]>? filters = null) => WithIsBusy(() =>
         {
             EnsureEnabled();
@@ -410,6 +424,9 @@ namespace Grayjay.Engine
             });
         });
 
+
+        [JSDocs(4, "searchPlaylists", "source.searchPlaylists()", "")]
+        [JSDocsParameter("query", "", 0)]
         public virtual IPager<PlatformContent> SearchPlaylists(string query) => WithIsBusy(() =>
         {
             EnsureEnabled();
@@ -422,11 +439,15 @@ namespace Grayjay.Engine
             return EvaluateObject<List<string>>($"source.searchSuggestions({SerializeParameter(query)})");
         });
 
+        [JSDocs(5, "isContentDetailsUrl", "source.isContentDetailsUrl()", "")]
+        [JSDocsParameter("url", "", 0)]
         public virtual bool IsContentDetailsUrl(string url)
         {
             EnsureEnabled();
             return (bool)_engine.Evaluate($"source.isContentDetailsUrl({SerializeParameter(url)})");
         }
+        [JSDocs(6, "getContentDetails", "source.getContentDetails()", "")]
+        [JSDocsParameter("url", "", 0)]
         public virtual IPlatformContentDetails GetContentDetails(string url) => WithIsBusy(() =>
         {
             EnsureEnabled();
@@ -434,6 +455,8 @@ namespace Grayjay.Engine
             result.ID.PluginID = Config.ID;
             return result;
         });
+        [JSDocs(7, "getContentChapters", "source.getContentChapters()", "")]
+        [JSDocsParameter("url", "", 0)]
         public virtual List<Chapter> GetContentChapters(string url) => WithIsBusy(() =>
         {
             if (!Capabilities.HasGetContentChapters)
@@ -451,14 +474,35 @@ namespace Grayjay.Engine
         }
 
 
+        [JSDocs(8, "getContentRecommendations", "source.getContentRecommendations()", "")]
+        [JSDocsParameter("url", "", 0)]
+        public virtual IPager<PlatformContent> getContentRecommendations(string url)
+        {
+            if (!Capabilities.HasGetContentRecommendations)
+                return null;
+            EnsureEnabled();
+            return EvaluatePager<PlatformContent>($"source.getContentRecommendations({SerializeParameter(url)})", (content) =>
+            {
+                content.ID.PluginID = Config.ID;
+            });
+        }
+
+
+
+        [JSDocs(8, "isChannelUrl", "source.isChannelUrl()", "")]
+        [JSDocsParameter("url", "", 0)]
         public virtual bool IsChannelUrl(string url)
             => (bool)_engine.Evaluate($"source.isChannelUrl({SerializeParameter(url)})");
+        [JSDocs(9, "isPlaylistUrl", "source.isPlaylistUrl()", "")]
+        [JSDocsParameter("url", "", 0)]
         public virtual bool IsPlaylistUrl(string url)
         {
             if (!Capabilities.HasGetPlaylist)
                 return false;
             return (bool)_engine.Evaluate($"source.isPlaylistUrl({SerializeParameter(url)})");
         }
+        [JSDocs(10, "getChannel", "source.getChannel()", "")]
+        [JSDocsParameter("url", "", 0)]
         public virtual PlatformChannel GetChannel(string url) => WithIsBusy(() =>
         {
             EnsureEnabled();
@@ -489,6 +533,9 @@ namespace Grayjay.Engine
                 };
             }
         }
+        [JSDocs(11, "searchChannelContents", "source.searchChannelContents()", "")]
+        [JSDocsParameter("channelUrl", "", 0)]
+        [JSDocsParameter("query", "", 1)]
         public virtual IPager<PlatformContent> SearchChannelContents(string channelUrl, string query) => WithIsBusy(() =>
         {
             EnsureEnabled();
@@ -497,10 +544,27 @@ namespace Grayjay.Engine
                 content.ID.PluginID = Config.ID;
             });
         });
+        [JSDocs(12, "getChannelContents", "source.getChannelContents()", "")]
+        [JSDocsParameter("channelUrl", "", 0)]
+        [JSDocsParameter("type", "", 1)]
+        [JSDocsParameter("order", "", 2)]
+        [JSDocsParameter("filters", "", 3)]
         public virtual IPager<PlatformContent> GetChannelContents(string channelUrl, string? type = null, string? order = null, Dictionary<string, List<string>>? filters = null) => WithIsBusy(() =>
         {
             EnsureEnabled();
             return EvaluatePager<PlatformContent>($"source.getChannelContents({SerializeParameter(channelUrl)}, {SerializeParameter(type)}, {SerializeParameter(order)}, {SerializeParameter(filters)})", (content) =>
+            {
+                content.ID.PluginID = Config.ID;
+            });
+        });
+        [JSDocs(12, "getChannelPlaylists", "source.getChannelPlaylists()", "")]
+        [JSDocsParameter("channelUrl", "", 0)]
+        public virtual IPager<PlatformPlaylist> getChannelPlaylists(string channelUrl) => WithIsBusy(() =>
+        {
+            EnsureEnabled();
+            if (!Capabilities.HasGetChannelPlaylists)
+                return null;
+            return EvaluatePager<PlatformPlaylist>($"source.getChannelPlaylists({SerializeParameter(channelUrl)})", (content) =>
             {
                 content.ID.PluginID = Config.ID;
             });
@@ -524,12 +588,17 @@ namespace Grayjay.Engine
                 return new List<string>();
             }
         }
+        [JSDocs(13, "peekChannelContents", "source.peekChannelContents()", "")]
+        [JSDocsParameter("channelUrl", "", 0)]
+        [JSDocsParameter("type", "", 1)]
         public virtual List<PlatformContent> PeekChannelContents(string channelUrl, string type) => WithIsBusy(() =>
         {
             EnsureEnabled();
             return EvaluateObject<List<PlatformContent>>($"source.peekChannelContents({SerializeParameter(channelUrl)}, {SerializeParameter(type)})");
         });
 
+        [JSDocs(14, "getComments", "source.getcomments()", "")]
+        [JSDocsParameter("url", "", 0)]
         public virtual IPager<PlatformComment> GetComments(string url) => WithIsBusy(() =>
         {
             EnsureEnabled();
@@ -551,6 +620,7 @@ namespace Grayjay.Engine
         });
 
 
+        [JSDocs(15, "getUserSubscriptions", "source.getUserSubscriptions()", "")]
         public virtual List<string> GetUserSubscriptions() => WithIsBusy(() =>
         {
             if (!Capabilities.HasGetUserSubscriptions)
@@ -558,6 +628,7 @@ namespace Grayjay.Engine
             EnsureEnabled();
             return EvaluateObject<List<string>>($"source.getUserSubscriptions()");
         });
+        [JSDocs(15, "getUserPlaylists", "source.getUserPlaylists()", "")]
         public virtual List<string> GetUserPlaylists() => WithIsBusy(() =>
         {
             if (!Capabilities.HasGetUserPlaylists)
@@ -868,11 +939,14 @@ namespace Grayjay.Engine
             return typeof(GrayjayPlugin).GetMethods().Select(x =>
             {
                 var attr = x.GetCustomAttribute<JSDocsAttribute>();
+                var parameters = x.GetCustomAttributes<JSDocsParameterAttribute>().OrderBy(x => x.Order).ToArray();
 
-                return (x, attr);
+                return (x, attr, parameters);
             }).Where(x => x.attr != null)
             .OrderBy(x => x.attr.Order)
-            .Select(y => new JSCallDocs(y.attr?.Name ?? y.x.Name, y.attr.Code, y.attr.Description, new List<JSParameterDocs>(), y.x.GetCustomAttribute<JSOptionalAttribute>() != null, null))
+            .Select(y => new JSCallDocs(y.attr?.Name ?? y.x.Name, y.attr.Code, y.attr.Description, 
+                y.parameters?.Select(z=>new JSParameterDocs(z.Name, z.Description))?.ToList() ?? new List<JSParameterDocs>(), 
+                y.x.GetCustomAttribute<JSOptionalAttribute>() != null, null))
             .ToList();
         }
 
@@ -930,6 +1004,8 @@ namespace Grayjay.Engine
             public bool HasGetLiveChatWindow { get; set; }
             public bool HasGetContentChapters { get; set; }
             public bool HasPeekChannelContents { get; set; }
+            public bool HasGetContentRecommendations { get; set; }
+            public bool HasGetChannelPlaylists { get; set; }
         }
     }
 

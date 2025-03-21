@@ -27,5 +27,8 @@ namespace Grayjay.Engine.Models.Video.Sources
         [V8Property("priority", true)]
         public bool Priority { get; set; }
 
+        [V8Property("original", true)]
+        public bool Original { get; set; }
+
     }
 }

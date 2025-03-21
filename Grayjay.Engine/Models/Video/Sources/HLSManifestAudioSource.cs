@@ -23,6 +23,8 @@ namespace Grayjay.Engine.Models.Video.Sources
         public string Language { get; set; }
         [V8Property("priority", true)]
         public bool Priority { get; set; }
+        [V8Property("original", true)]
+        public bool Original { get; set; }
 
     }
 }
