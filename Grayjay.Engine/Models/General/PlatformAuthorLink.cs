@@ -1,7 +1,9 @@
-﻿using Grayjay.Engine.V8;
+﻿using Grayjay.Engine.Serializers;
+using Grayjay.Engine.V8;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace Grayjay.Engine.Models.General
 {
@@ -16,6 +18,7 @@ namespace Grayjay.Engine.Models.General
         [V8Property("thumbnail", true)]
         public string Thumbnail { get; set; }
         [V8Property("subscribers", true)]
+        [JsonConverter(typeof(NullableDefaultLongConverter))]
         public long Subscribers { get; set; }
     }
 }

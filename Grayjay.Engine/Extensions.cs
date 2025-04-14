@@ -128,14 +128,34 @@ namespace Grayjay.Engine
         {
             if (queryDomain.StartsWith("."))
             {
-                var parts = queryDomain.ToLower().Split(".");
+                var parts = domain.ToLower().Split(".");
+                var queryParts = queryDomain.ToLower().TrimStart('.').Split(".");
 
-                if (parts.Length < 3)
-                    throw new InvalidOperationException($"Illegal use of wildcards on First-Level-Domain ({queryDomain}) while checking domain ({domain})");
-                if(parts.Length >= 3)
+                //domain.com.au < .domain.com.au
+                if (parts.Length == queryParts.Length)
                 {
-                    var isSLD = _slds.Contains("." + parts[parts.Length - 2] + "." + parts[parts.Length - 1]);
-                    if (isSLD && parts.Length <= 3)
+                    for (int i = 0; i < parts.Length; i++)
+                        if (parts[i] != queryParts[i])
+                            return false;
+                    return true;
+                }
+                //example.domain.com.au < .domain.com.au
+                else if (parts.Length - 1 == queryParts.Length)
+                {
+                    for (int i = 1; i < parts.Length; i++)
+                        if (parts[i] != queryParts[i - 1])
+                            return false;
+                    return true;
+                }
+                else
+                    return false;
+
+                if (queryParts.Length < 3)
+                    throw new InvalidOperationException($"Illegal use of wildcards on First-Level-Domain ({queryDomain}) while checking domain ({domain})");
+                if(queryParts.Length >= 3)
+                {
+                    var isSLD = _slds.Contains("." + queryParts[queryParts.Length - 2] + "." + queryParts[queryParts.Length - 1]);
+                    if (isSLD && queryParts.Length <= 3)
                         throw new InvalidOperationException($"Illegal use of wildcards on Second-Level-Domain ({queryDomain}) while checking domain ({domain})");
                 }
 

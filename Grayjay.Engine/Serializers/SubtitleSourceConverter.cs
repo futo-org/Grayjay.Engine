@@ -53,7 +53,7 @@ namespace Grayjay.Engine.Serializers
         {
             if (value is SubtitleRawSource raw)
             {
-                JsonSerializer.Serialize(writer, raw);
+                JsonSerializer.Serialize(writer, raw, options);
             }
             else if (value.HasFetch)
             {
@@ -69,18 +69,18 @@ namespace Grayjay.Engine.Serializers
                             Name = value.Name,
                             Format = value.Format,
                             HasFetch = true
-                        });
+                        }, options);
                         break;
                     case SubtitleConvertBehavior.Fetch:
                         var rawSubs = value.ToRaw();
-                        JsonSerializer.Serialize(writer, rawSubs);
+                        JsonSerializer.Serialize(writer, rawSubs, options);
                         break;
                     default:
                         throw new NotImplementedException();
                 }
             }
             else
-                JsonSerializer.Serialize(writer, new SubtitleSource.Serializable(value));
+                JsonSerializer.Serialize(writer, new SubtitleSource.Serializable(value), options.ExcludeConverter<SubtitleSource>());
         }
     }
 }

@@ -25,25 +25,24 @@ namespace Grayjay.Engine.Serializers
                 throw new JsonException();
 
             string? propertyName = readerClone.GetString();
-            if (propertyName != nameof(PlatformContent.ContentType))
-                throw new JsonException();
+            if (!propertyName.Equals(nameof(PlatformContent.ContentType), StringComparison.OrdinalIgnoreCase))
+                throw new JsonException("Expected property ContentType");
 
             readerClone.Read();
-            if (readerClone.TokenType != JsonTokenType.Number)
-                throw new JsonException();
-
-            ContentType typeDiscriminator = (ContentType)readerClone.GetInt32();
+            ContentType typeDiscriminator = (readerClone.TokenType == JsonTokenType.Number) ?
+                (ContentType)readerClone.GetInt32() :
+                (ContentType)Enum.Parse(typeof(ContentType), readerClone.GetString());
             PlatformContent content = typeDiscriminator switch
             {
-                ContentType.MEDIA => JsonSerializer.Deserialize<PlatformVideo>(ref reader)!,
-                _ => JsonSerializer.Deserialize<PlatformContent>(ref reader)
+                ContentType.MEDIA => JsonSerializer.Deserialize<PlatformVideo>(ref reader, options)!,
+                _ => JsonSerializer.Deserialize<PlatformContent>(ref reader, options)
             };
             return content;
         }
 
         public override void Write(Utf8JsonWriter writer, PlatformContent value, JsonSerializerOptions options)
         {
-            JsonSerializer.Serialize(writer, value);
+            JsonSerializer.Serialize(writer, value, options.ExcludeConverter<PlatformContent>());
         }
     }
 }

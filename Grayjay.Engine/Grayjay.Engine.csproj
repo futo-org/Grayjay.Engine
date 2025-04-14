@@ -26,10 +26,6 @@
     <EmbeddedResource Include="ScriptDeps\source.js" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Serializers\" />
-  </ItemGroup>
-
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
     <DebugSymbols>False</DebugSymbols>
     <DebugType>None</DebugType>

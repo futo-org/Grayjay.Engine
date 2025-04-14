@@ -42,13 +42,13 @@ namespace Grayjay.Engine.Serializers
                 RatingTypes.Dislikes => JsonSerializer.Deserialize<RatingDislikes>(ref reader),
                 RatingTypes.Scaler => JsonSerializer.Deserialize<RatingScaler>(ref reader),
                 _ => JsonSerializer.Deserialize<RatingLikes>(ref reader)
-            };;
+            }; ;
             return content;
         }
 
         public override void Write(Utf8JsonWriter writer, IRating value, JsonSerializerOptions options)
         {
-            JsonSerializer.Serialize(writer, value);
+            JsonSerializer.Serialize(writer, value, options.ExcludeConverter<IRating>());
         }
     }
 }

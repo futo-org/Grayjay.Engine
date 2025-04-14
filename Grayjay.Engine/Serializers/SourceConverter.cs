@@ -50,9 +50,9 @@ namespace Grayjay.Engine.Serializers
         public override void Write(Utf8JsonWriter writer, IVideoSource value, JsonSerializerOptions options)
         {
             if (value is JSSource jsSource && !jsSource.CanSerialize)
-                JsonSerializer.Serialize(writer, VideoSourceDescription.FromSource(value));
+                JsonSerializer.Serialize(writer, VideoSourceDescription.FromSource(value), options.ExcludeConverter<IVideoSource>());
             else
-                JsonSerializer.Serialize(writer, value);
+                JsonSerializer.Serialize(writer, value, options.ExcludeConverter<IVideoSource>());
         }
     }
     public class AudioSourceConverter : JsonConverter<IAudioSource>
@@ -98,9 +98,9 @@ namespace Grayjay.Engine.Serializers
         public override void Write(Utf8JsonWriter writer, IAudioSource value, JsonSerializerOptions options)
         {
             if (value is JSSource jsSource && !jsSource.CanSerialize)
-                JsonSerializer.Serialize(writer, AudioSourceDescription.FromSource(value));
+                JsonSerializer.Serialize(writer, AudioSourceDescription.FromSource(value), options.ExcludeConverter<IAudioSource>());
             else
-                JsonSerializer.Serialize(writer, value);
+                JsonSerializer.Serialize(writer, value, options.ExcludeConverter<IAudioSource>());
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -16,6 +17,7 @@ namespace Grayjay.Engine.Serializers
                 new JsonStringEnumConverter()
             }
         }, SubtitleConvertBehavior.Serialize);
+
         public static JsonSerializerOptions Options { get; }
         public JsonSerializerOptions CustomOptions { get; private set; }
 
@@ -60,6 +62,22 @@ namespace Grayjay.Engine.Serializers
 
         public static string Serialize<T>(T obj)
             => JsonSerializer.Serialize<T>(obj, Options);
+
+    }
+
+    public static class GJsonSerializerExtensions
+    {
+        public static JsonSerializerOptions ExcludeConverter<T>(this JsonSerializerOptions options)
+        {
+            if (options.Converters.Count == 0)
+                return options;
+            var toRemove = options.Converters.FirstOrDefault(x => x.Type == typeof(T));
+            if (toRemove == null)
+                return options;
+            var options2 = new JsonSerializerOptions(options);
+            options2.Converters.Remove(toRemove);
+            return options2;
+        }
 
     }
 }
