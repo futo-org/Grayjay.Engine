@@ -1,13 +1,14 @@
 ﻿using Grayjay.Engine.V8;
+using Microsoft.ClearScript.JavaScript;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace Grayjay.Engine.Models.Video.Sources
 {
-    public class VideoUrlSource: IVideoSource
+    public class VideoUrlSource: JSSource, IVideoSource
     {
-        public virtual string Type => "VideoUrlSource";
+        public override string Type => "VideoUrlSource";
 
         [V8Property("width")]
         public int Width { get; set; }
@@ -27,5 +28,11 @@ namespace Grayjay.Engine.Models.Video.Sources
         public string Url { get; set; }
         [V8Property("priority", true)]
         public bool Priority { get; set; }
+
+        public VideoUrlSource() { }
+        public VideoUrlSource(GrayjayPlugin plugin, IJavaScriptObject obj) : base(plugin, obj)
+        {
+
+        }
     }
 }

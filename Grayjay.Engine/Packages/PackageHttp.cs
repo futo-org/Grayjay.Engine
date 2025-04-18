@@ -14,6 +14,7 @@ using System.Net;
 using System.Reflection;
 using System.Text;
 using static Grayjay.Engine.Extensions;
+using static Grayjay.Engine.Packages.PackageHttp;
 
 namespace Grayjay.Engine.Packages
 {
@@ -28,8 +29,8 @@ namespace Grayjay.Engine.Packages
         };
 
 
-        private ManagedHttpClient _client;
-        private ManagedHttpClient _clientAuth;
+        private PackageHttpClient _client;
+        private PackageHttpClient _clientAuth;
 
         public string ClientID { get; } = Guid.NewGuid().ToString();
 
@@ -44,8 +45,8 @@ namespace Grayjay.Engine.Packages
 
         public PackageHttp(GrayjayPlugin plugin) : base(plugin)
         {
-            _client = plugin.HttpClient;
-            _clientAuth = plugin.HttpClientAuth;
+            _client = new PackageHttpClient(this, plugin.HttpClient);
+            _clientAuth = new PackageHttpClient(this, plugin.HttpClientAuth);
         }
 
         public override void Initialize(V8ScriptEngine engine)
@@ -54,18 +55,59 @@ namespace Grayjay.Engine.Packages
         }
 
 
-        public override void Dispose()
-        {
 
+        [ScriptMember("batch")]
+        public HttpBatchBuilder Batch()
+        {
+            return new HttpBatchBuilder(this);
+        }
+
+        [ScriptMember("getDefaultClient")]
+        public PackageHttpClient GetDefaultClient(bool withAuth)
+        {
+            return (withAuth) ? _clientAuth : _client;
+        }
+
+        [ScriptMember("request")]
+        public object Request(string method, string url, ScriptObject headers = null, bool useAuth = false, bool useByteResponses = false)
+        {
+            return (useAuth) ?
+                _clientAuth.Request(method, url, headers, useByteResponses) :
+                _client.Request(method, url, headers, useByteResponses);
+        }
+        [ScriptMember("requestWithBody")]
+        public object RequestWithBody(string method, string url, object body, ScriptObject headers = null, bool useAuth = false, bool useByteResponses = false)
+        {
+            return (useAuth) ?
+                _clientAuth.RequestWithBody(method, url, body, headers, useByteResponses) :
+                _client.RequestWithBody(method, url, body, headers, useByteResponses);
         }
 
 
-        public HttpResponse RequestInternal(RequestDescriptor descriptor)
+
+        [ScriptMember]
+        public object GET(string url, ScriptObject headers, bool auth = false, bool useByteResponses = false)
+        {
+            return (auth) ?
+                _clientAuth.GET(url, headers, auth, useByteResponses) :
+                _client.GET(url, headers, auth, useByteResponses);
+        }
+        [ScriptMember]
+        public object POST(string url, object body, IScriptObject headers, bool auth = false, bool useByteResponses = false)
+        {
+            return (auth) ?
+                _clientAuth.POST(url, body, headers, auth, useByteResponses) :
+                _client.POST(url, body, headers, auth, useByteResponses);
+        }
+
+
+        public HttpResponse RequestInternal(RequestDescriptor descriptor, PackageHttpClient client = null)
         {
             Stopwatch w = new Stopwatch();
             w.Start();
-            var client = (descriptor.UseAuth) ? _clientAuth : _client;
-            ManagedHttpClient.Response resp = client.Request(descriptor.Method, descriptor.Url, descriptor.Body, descriptor.Headers);
+            if(client == null)
+                client = descriptor.UseAuth ? _clientAuth : _client;
+            ManagedHttpClient.Response resp = client.Client.Request(descriptor.Method, descriptor.Url, descriptor.Body, descriptor.Headers);
             HttpResponse result = (descriptor.ReturnType == ReturnType.Bytes) ?
                  (HttpResponse)new HttpJSBytesResponse(_plugin, resp.Code, resp.Body.AsBytes(), SanitizeResponseHeaders(resp.Headers, descriptor.UseAuth || !_plugin.Config.AllowAllHttpHeaderAccess), resp.Url) :
                  (HttpResponse)new HttpStringResponse(resp.Code, resp.Body.AsString(), SanitizeResponseHeaders(resp.Headers, descriptor.UseAuth || !_plugin.Config.AllowAllHttpHeaderAccess), resp.Url);
@@ -74,117 +116,6 @@ namespace Grayjay.Engine.Packages
             if (Logger.WillLog(LogLevel.Debug))
                 Logger.Debug<PackageHttp>($"PackageHttp.Request [{descriptor.Url}]({result.Code}) {w.ElapsedMilliseconds}ms");
             return result;
-        }
-
-        [ScriptMember("request")]
-        public object Request(string method, string url, ScriptObject headers = null, bool useAuth = false, bool useByteResponses = false)
-        {
-            return RequestInternal(new RequestDescriptor()
-            {
-                Method = method,
-                Url = url,
-                Headers = headers.ToDictionary<string>(),
-                UseAuth = useAuth,
-                ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
-            });
-        }
-        [ScriptMember("requestWithBody")]
-        public object RequestWithBody(string method, string url, object body, ScriptObject headers = null, bool useAuth = false, bool useByteResponses = false)
-        {
-            if (body is string)
-                return RequestInternal(new RequestDescriptor()
-                {
-                    Method = method,
-                    Url = url,
-                    Headers = headers.ToDictionary<string>(),
-                    UseAuth = useAuth,
-                    Body = (string)body,
-                    ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
-                });
-            else if (body is ITypedArray tbody)
-            {
-                return RequestInternal(new RequestDescriptor()
-                {
-                    Method = method,
-                    Url = url,
-                    Headers = headers.ToDictionary<string>(),
-                    UseAuth = useAuth,
-                    Body = tbody.ArrayBuffer.GetBytes(),
-                    ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
-                });
-            }
-            else if (body is JArray jabody)
-            {
-                return RequestInternal(new RequestDescriptor()
-                {
-                    Method = method,
-                    Url = url,
-                    Headers = headers.ToDictionary<string>(),
-                    UseAuth = useAuth,
-                    Body = jabody.Select(x => (byte)((int)x)).ToArray(),
-                    ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
-                });
-            }
-            throw new NotImplementedException();
-        }
-
-        [ScriptMember("batch")]
-        public HttpBatchBuilder Batch()
-        {
-            return new HttpBatchBuilder(this);
-        }
-
-
-        [ScriptMember]
-        public object GET(string url, ScriptObject headers, bool auth = false, bool useByteResponses = false)
-        {
-            return RequestInternal(new RequestDescriptor()
-            {
-                Method = "GET",
-                Url = url,
-                Headers = headers.ToDictionary<string>(),
-                UseAuth = auth,
-                ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
-            });
-        }
-        [ScriptMember]
-        public object POST(string url, object body, IScriptObject headers, bool auth = false, bool useByteResponses = false)
-        {
-            if (body is string)
-                return RequestInternal(new RequestDescriptor()
-                {
-                    Method = "POST",
-                    Url = url,
-                    Headers = headers.ToDictionary<string>(),
-                    UseAuth = auth,
-                    Body = (string)body,
-                    ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
-                });
-            else if(body is ITypedArray tbody)
-            {
-                return RequestInternal(new RequestDescriptor()
-                {
-                    Method = "POST",
-                    Url = url,
-                    Headers = headers.ToDictionary<string>(),
-                    UseAuth = auth,
-                    Body = tbody.ArrayBuffer.GetBytes(),
-                    ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
-                });
-            }
-            else if(body is JArray jabody)
-            {
-                return RequestInternal(new RequestDescriptor()
-                {
-                    Method = "POST",
-                    Url = url,
-                    Headers = headers.ToDictionary<string>(),
-                    UseAuth = auth,
-                    Body = jabody.Select(x=>(byte)((int)x)).ToArray(),
-                    ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
-                });
-            }
-            throw new NotImplementedException();
         }
 
 
@@ -206,7 +137,7 @@ namespace Grayjay.Engine.Packages
             Dictionary<string, List<string>> results = new Dictionary<string, List<string>>();
             if (onlyWhitelisted)
             {
-                foreach(var header in headers)
+                foreach (var header in headers)
                 {
                     if (WHITELISTED_RESPONSE_HEADERS.Contains(header.Key.ToLower()))
                         results.Add(header.Key, header.Value);
@@ -214,7 +145,7 @@ namespace Grayjay.Engine.Packages
             }
             else
             {
-                foreach(var header in headers)
+                foreach (var header in headers)
                 {
                     if (header.Key.ToLower() == "set-cookie" && !header.Value.Any(x => x.ToLower().Contains("httponly")))
                         results.Add(header.Key, header.Value.Where(x => !x.ToLower().Contains("httponly")).ToList());
@@ -225,6 +156,13 @@ namespace Grayjay.Engine.Packages
 
             return results;
         }
+
+        public override void Dispose()
+        {
+
+        }
+
+
 
 
         [NoDefaultScriptAccess]
@@ -376,13 +314,15 @@ namespace Grayjay.Engine.Packages
     public class PackageHttpClient
     {
         private PackageHttp _package;
-        private ManagedHttpClient _client;
+        private PluginHttpClient _client;
 
-        private Dictionary<string, string> _defaultHeaders;
+        private Dictionary<string, string> _defaultHeaders = new Dictionary<string, string>();
         private string _clientId = null;
 
         [ScriptMember("clientId")]
         public string ClientID { get; }
+
+        internal PluginHttpClient Client => _client;
 
         public PackageHttpClient(PackageHttp package, PluginHttpClient client)
         {
@@ -390,5 +330,157 @@ namespace Grayjay.Engine.Packages
             _client = client;
             _clientId = client.ClientID;
         }
+
+
+        [ScriptMember("setDefaultHeaders")]
+        public void SetDefaultHeaders(ScriptObject defaultHeaders)
+        {
+            foreach(var key in defaultHeaders.PropertyNames)
+            {
+                _defaultHeaders[key] = (string)defaultHeaders[key];
+            }
+        }
+        [ScriptMember("setDoApplyCookies")]
+        public void SetDoApplyCookies(bool apply)
+        {
+            if (_client is PluginHttpClient pc)
+                pc.DoApplyCookies = apply;
+        }
+        [ScriptMember("setDoUpdateCookies")]
+        public void SetDoUpdateCookies(bool update)
+        {
+            if (_client is PluginHttpClient pc)
+                pc.DoUpdateCookies = update;
+        }
+        [ScriptMember("setDoAllowNewCookies")]
+        public void SetDoAllowNewCookies(bool allow)
+        {
+            if (_client is PluginHttpClient pc)
+                pc.DoAllowNewCookies = allow;
+        }
+
+        [ScriptMember("setTimeout")]
+        public void SetTimeout(int timeoutMs)
+        {
+            //tODO: Timeout support
+        }
+
+        private void ApplyDefaultHeaders(ScriptObject headerMap)
+        {
+            lock (_defaultHeaders)
+            {
+                foreach(var toApply in _defaultHeaders)
+                {
+                    if (!headerMap.PropertyNames.Contains(toApply.Key))
+                        headerMap[toApply.Key] = toApply.Value;
+                }
+            }
+        }
+
+
+        [ScriptMember("request")]
+        public object Request(string method, string url, ScriptObject headers = null, bool useByteResponses = false)
+        {
+            ApplyDefaultHeaders(headers);
+
+            return _package.RequestInternal(new RequestDescriptor()
+            {
+                Method = method,
+                Url = url,
+                Headers = headers.ToDictionary<string>(),
+                ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
+            }, this);
+        }
+        [ScriptMember("requestWithBody")]
+        public object RequestWithBody(string method, string url, object body, ScriptObject headers = null, bool useByteResponses = false)
+        {
+            if (body is string)
+                return _package.RequestInternal(new RequestDescriptor()
+                {
+                    Method = method,
+                    Url = url,
+                    Headers = headers.ToDictionary<string>(),
+                    Body = (string)body,
+                    ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
+                }, this);
+            else if (body is ITypedArray tbody)
+            {
+                return _package.RequestInternal(new RequestDescriptor()
+                {
+                    Method = method,
+                    Url = url,
+                    Headers = headers.ToDictionary<string>(),
+                    Body = tbody.ArrayBuffer.GetBytes(),
+                    ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
+                }, this);
+            }
+            else if (body is JArray jabody)
+            {
+                return _package.RequestInternal(new RequestDescriptor()
+                {
+                    Method = method,
+                    Url = url,
+                    Headers = headers.ToDictionary<string>(),
+                    Body = jabody.Select(x => (byte)((int)x)).ToArray(),
+                    ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
+                }, this);
+            }
+            throw new NotImplementedException();
+        }
+
+
+
+        [ScriptMember]
+        public object GET(string url, ScriptObject headers, bool auth = false, bool useByteResponses = false)
+        {
+            return _package.RequestInternal(new RequestDescriptor()
+            {
+                Method = "GET",
+                Url = url,
+                Headers = headers.ToDictionary<string>(),
+                UseAuth = auth,
+                ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
+            }, this);
+        }
+        [ScriptMember]
+        public object POST(string url, object body, IScriptObject headers, bool auth = false, bool useByteResponses = false)
+        {
+            if (body is string)
+                return _package.RequestInternal(new RequestDescriptor()
+                {
+                    Method = "POST",
+                    Url = url,
+                    Headers = headers.ToDictionary<string>(),
+                    UseAuth = auth,
+                    Body = (string)body,
+                    ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
+                }, this);
+            else if (body is ITypedArray tbody)
+            {
+                return _package.RequestInternal(new RequestDescriptor()
+                {
+                    Method = "POST",
+                    Url = url,
+                    Headers = headers.ToDictionary<string>(),
+                    UseAuth = auth,
+                    Body = tbody.ArrayBuffer.GetBytes(),
+                    ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
+                }, this);
+            }
+            else if (body is JArray jabody)
+            {
+                return _package.RequestInternal(new RequestDescriptor()
+                {
+                    Method = "POST",
+                    Url = url,
+                    Headers = headers.ToDictionary<string>(),
+                    UseAuth = auth,
+                    Body = jabody.Select(x => (byte)((int)x)).ToArray(),
+                    ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
+                }, this);
+            }
+            throw new NotImplementedException();
+        }
+
     }
 }
