@@ -25,7 +25,7 @@ namespace Grayjay.Engine.Models.Video.Additions
                 throw new ScriptImplementationException(plugin.Config, "RequestModifier is missing modifyRequest");
         }
 
-        public Request modifyRequest(string url, Dictionary<string, string> headers)
+        public Request ModifyRequest(string url, Dictionary<string, string> headers)
         {
             if (_modifier == null)
                 return new Request(url, headers);
