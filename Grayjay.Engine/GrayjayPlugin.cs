@@ -56,7 +56,7 @@ namespace Grayjay.Engine
 
         private object _enableLock = new object();
 
-        private Dictionary<string, string?> _settings => Descriptor?.Settings ?? new Dictionary<string, string>();
+        private Dictionary<string, string?> _settings => Descriptor?.GetSettingsWithDefaults() ?? new Dictionary<string, string>();
 
         private ResultCapabilities? _channelCapabilities = null;
         private ResultCapabilities? _searchCapabilities = null;

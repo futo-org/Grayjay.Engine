@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Grayjay.Engine
 {
@@ -89,7 +91,6 @@ namespace Grayjay.Engine
                 return JsonSerializer.Deserialize<PluginConfig>(data, _serializerOptions);
             }
         }
-
         public bool IsUrlAllowed(string url)
         {
             if (_allowAnywhere)
@@ -185,6 +186,9 @@ namespace Grayjay.Engine
         public string Dependency { get; set; }
         public string WarningDialog { get; set; }
         public List<string> Options { get; set; }
+
+        [JsonIgnore]
+        public string VariableOrName => (string.IsNullOrEmpty(Variable)) ? Name : Variable;
     }
     public class PluginCaptchaConfig
     {
