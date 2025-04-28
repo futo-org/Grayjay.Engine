@@ -6,6 +6,7 @@ using Grayjay.Engine.Models.Detail;
 using Grayjay.Engine.Models.Feed;
 using Grayjay.Engine.Models.General;
 using Grayjay.Engine.Models.Playback;
+using Grayjay.Engine.Models.Video.Additions;
 using Grayjay.Engine.Packages;
 using Grayjay.Engine.Pagers;
 using Grayjay.Engine.V8;
@@ -55,7 +56,7 @@ namespace Grayjay.Engine
 
         private object _enableLock = new object();
 
-        private Dictionary<string, string?> _settings => Descriptor?.Settings ?? new Dictionary<string, string>();
+        private Dictionary<string, string?> _settings => Descriptor?.GetSettingsWithDefaults() ?? new Dictionary<string, string>();
 
         private ResultCapabilities? _channelCapabilities = null;
         private ResultCapabilities? _searchCapabilities = null;
@@ -71,8 +72,8 @@ namespace Grayjay.Engine
 
         public PlatformClientCapabilities Capabilities { get; private set; } = new PlatformClientCapabilities();
 
-        public ManagedHttpClient HttpClient { get; private set; }
-        public ManagedHttpClient HttpClientAuth { get; private set; }
+        public PluginHttpClient HttpClient { get; private set; }
+        public PluginHttpClient HttpClientAuth { get; private set; }
         public Dictionary<string, PluginHttpClient> HttpClientOthers { get; private set; } = new Dictionary<string, PluginHttpClient>();
         public void RegisterHttpClient(PluginHttpClient httpClient)
         {
@@ -139,6 +140,17 @@ namespace Grayjay.Engine
         public V8ScriptEngine? GetUnderlyingEngine()
         {
             return _engine;
+        }
+
+        public PluginHttpClient GetHttpClientById(string id)
+        {
+            if (HttpClient.ClientID == id)
+                return HttpClient;
+            if (HttpClientAuth.ClientID == id)
+                return HttpClientAuth;
+            if (HttpClientOthers.ContainsKey(id))
+                return HttpClientOthers[id];
+            return null;
         }
 
         public void Initialize()
@@ -1016,9 +1028,10 @@ namespace Grayjay.Engine
         private SourceAuth _auth;
         private SourceCaptcha _captcha;
 
+
         public string ClientID { get; } = Guid.NewGuid().ToString();
 
-        private bool DoUpdateCookies { get; set; } = true;
+        public bool DoUpdateCookies { get; set; } = true;
         public bool DoApplyCookies { get; set; } = true;
         public bool DoAllowNewCookies { get; set; } = true;
 
@@ -1115,6 +1128,71 @@ namespace Grayjay.Engine
             else
                 throw new NotImplementedException();
         }
+
+        
+        public void ApplyHeaders(Uri url, Dictionary<string, string> headers, bool applyAuth = false, bool applyOtherCookies = false)
+        {
+            var domain = url.Host.ToLower();
+            var auth = _auth;
+
+            if (applyAuth && auth != null)
+            {
+                foreach (var header in auth.Headers.Where(x => domain.MatchesDomain(x.Key)).SelectMany(x => x.Value).ToList())
+                {
+                    if (headers.ContainsKey(header.Key))
+                        headers.Remove(header.Key);
+                    headers.Add(header.Key, header.Value);
+                }
+            }
+
+            if (DoApplyCookies && (applyAuth || applyOtherCookies))
+            {
+                if (_currentCookieMap.Any())
+                {
+                    var cookiesToApply = new Dictionary<string, string>();
+
+                    if(applyOtherCookies)
+                    {
+                        lock(_otherCookieMap)
+                        {
+                            foreach (var cookie in _otherCookieMap.Where(x => domain.MatchesDomain(x.Key)).SelectMany(x => x.Value))
+                                cookiesToApply[cookie.Key] = cookie.Value;
+                        }
+                    }
+
+                    if (applyAuth)
+                    {
+                        lock (_currentCookieMap)
+                        {
+                            foreach (var cookie in _currentCookieMap.Where(x => domain.MatchesDomain(x.Key)).SelectMany(x => x.Value))
+                                cookiesToApply[cookie.Key] = cookie.Value;
+                        }
+                    }
+
+                    if (cookiesToApply?.Any() ?? false)
+                    {
+                        var cookieString = string.Join("; ", cookiesToApply.Select(x => x.Key + "=" + x.Value));
+
+                        var existingCookies = (headers.ContainsKey("Cookie")) ? headers["Cookie"] : null;
+                        if (!string.IsNullOrEmpty(existingCookies))
+                        {
+                            headers.Remove("Cookie");
+                            headers.Add("Cookie", existingCookies + ";" + cookieString);
+                        }
+                        else
+                            headers.Add("Cookie", cookieString);
+                        /*
+                        var existingCookies = request.Headers[HttpRequestHeader.Cookie];
+                        if (existingCookies?.Any() ?? false)
+                            request.Headers[HttpRequestHeader.Cookie] = existingCookies.Trim(';') + ";" + cookieString;
+                        else
+                            request.Headers[HttpRequestHeader.Cookie] = cookieString;
+                        */
+                    }
+                }
+            }
+        }
+        
 
         public override void AfterRequest(HttpResponseMessage response)
         {

@@ -31,6 +31,8 @@ namespace Grayjay.Engine.Web
         private HttpClientHandler _handler;
         private HttpClient _client;
 
+        public string UserAgent { get; set; } = "Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0";
+
 
         public ManagedHttpClient() {
             _handler = new HttpClientHandler()
@@ -58,6 +60,12 @@ namespace Grayjay.Engine.Web
         {
             try
             {
+                if (string.IsNullOrEmpty(url))
+                    throw new ArgumentException("No url provided");
+                if (string.IsNullOrEmpty(method))
+                    throw new ArgumentException("No method provided");
+
+
                 headers = headers ?? new Dictionary<string, string>();
 
                 /*
@@ -84,10 +92,14 @@ namespace Grayjay.Engine.Web
                 HttpWebResponse resp = (HttpWebResponse)req.GetResponse();
                 */
                 var req = new HttpRequestMessage(new HttpMethod(method), url);
-                req.Version = HttpVersion.Version20;
+                req.Version = HttpVersion.Version11;
+                req.VersionPolicy = HttpVersionPolicy.RequestVersionOrHigher;
 
                 foreach (var header in headers)
                     req.Headers.TryAddWithoutValidation(header.Key, header.Value);
+
+                if (!headers.Any(x => x.Key.ToLower() == "user-agent"))
+                    req.Headers.Add("User-Agent", UserAgent);
 
                 BeforeRequest(req);
 
@@ -97,7 +109,12 @@ namespace Grayjay.Engine.Web
                     if (body is string bodyStr)
                     {
                         if (contentType.Value != null)
-                            req.Content = new StringContent(bodyStr, Encoding.UTF8, contentType.Value);
+                        {
+                            var contentTypeVal = contentType.Value;
+                            if (contentTypeVal.Contains(";"))
+                                contentTypeVal = contentType.Value.Substring(0, contentType.Value.IndexOf(";"));
+                            req.Content = new StringContent(bodyStr, Encoding.UTF8, contentTypeVal);
+                        }
                         else
                             req.Content = new StringContent(bodyStr, Encoding.UTF8);
                     }

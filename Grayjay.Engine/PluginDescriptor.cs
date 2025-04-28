@@ -53,6 +53,17 @@ namespace Grayjay.Engine
             OnAuthChanged?.Invoke();
         }
 
+        public Dictionary<string, string?> GetSettingsWithDefaults()
+        {
+            var map = new Dictionary<string, string?>(Settings);
+            foreach(var field in Config.Settings)
+            {
+                if (!map.ContainsKey(field.VariableOrName) || map[field.VariableOrName] == null)
+                    map[field.VariableOrName] = field.Default;
+            }
+            return map;
+        }
+
         public SourceCaptcha GetCaptchaData()
         {
             if (string.IsNullOrEmpty(CaptchaEncrypted))

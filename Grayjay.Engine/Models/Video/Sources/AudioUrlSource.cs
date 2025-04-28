@@ -1,13 +1,14 @@
 ﻿using Grayjay.Engine.V8;
+using Microsoft.ClearScript.JavaScript;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace Grayjay.Engine.Models.Video.Sources
 {
-    public class AudioUrlSource: IAudioSource
+    public class AudioUrlSource: JSSource, IAudioSource
     {
-        public string Type => "AudioUrlSource";
+        public override string Type => "AudioUrlSource";
 
         [V8Property("container")]
         public string Container { get; set; }
@@ -30,5 +31,11 @@ namespace Grayjay.Engine.Models.Video.Sources
         [V8Property("original", true)]
         public bool Original { get; set; }
 
+
+        public AudioUrlSource() : base() { }
+        public AudioUrlSource(GrayjayPlugin plugin, IJavaScriptObject obj): base(plugin, obj)
+        {
+
+        }
     }
 }

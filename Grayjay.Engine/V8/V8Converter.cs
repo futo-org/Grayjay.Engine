@@ -39,6 +39,14 @@ namespace Grayjay.Engine.V8
             if (TryConvertPrimitive(t, obj, out primitiveResult))
                 return primitiveResult;
 
+            if(t.IsAssignableTo(typeof(IDictionary)) && obj is PropertyBag bag)
+            {
+                var dict = (IDictionary)Activator.CreateInstance(t);
+                foreach (var prop in bag)
+                    dict.Add(prop.Key, prop.Value);
+                return dict;
+            }
+
             if (!(obj is IJavaScriptObject))
                 throw new InvalidOperationException($"No supported V8 mapping found for {t.Name}");
 

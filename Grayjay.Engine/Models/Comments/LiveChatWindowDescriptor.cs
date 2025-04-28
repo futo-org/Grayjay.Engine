@@ -7,6 +7,8 @@ namespace Grayjay.Engine.Models.Comments
 {
     public class LiveChatWindowDescriptor
     {
+        public string ID { get; set; } = Guid.NewGuid().ToString();
+
         [V8Property("url")]
         public string Url { get; set; }
         [V8Property("removeElements", true)]

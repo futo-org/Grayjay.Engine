@@ -1,4 +1,5 @@
 ﻿using Grayjay.Engine.V8;
+using Microsoft.ClearScript.JavaScript;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -29,5 +30,13 @@ namespace Grayjay.Engine.Models.Video.Sources
             FileIndexStart = IndexStart,
             FileIndexEnd = IndexEnd
         };
+
+
+
+        public AudioUrlRangeSource() : base() { }
+        public AudioUrlRangeSource(GrayjayPlugin plugin, IJavaScriptObject obj) : base(plugin, obj)
+        {
+
+        }
     }
 }

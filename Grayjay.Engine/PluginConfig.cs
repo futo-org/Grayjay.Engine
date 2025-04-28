@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Grayjay.Engine
 {
@@ -89,7 +91,6 @@ namespace Grayjay.Engine
                 return JsonSerializer.Deserialize<PluginConfig>(data, _serializerOptions);
             }
         }
-
         public bool IsUrlAllowed(string url)
         {
             if (_allowAnywhere)
@@ -129,7 +130,20 @@ namespace Grayjay.Engine
                 });
             }
 
-            if(string.IsNullOrEmpty(ScriptSignature) || string.IsNullOrEmpty(ScriptPublicKey))
+            if (AllowUrls.Any(x=>x == "everywhere"))
+                warnings.Add(new PluginWarning()
+                {
+                    Title = "Unrestricted Web Access",
+                    Description = "This plugin requires access to all domains, this may inlcude malicious domains."
+                });
+            if (AllowAllHttpHeaderAccess)
+                warnings.Add(new PluginWarning()
+                {
+                    Title = "Unrestricted HTTP Header Access",
+                    Description = "Allows this plugin to access all headers (including cookies and authorization headers) for unauthenticated requests."
+                });
+
+            if (string.IsNullOrEmpty(ScriptSignature) || string.IsNullOrEmpty(ScriptPublicKey))
                 warnings.Add(new PluginWarning()
                 {
                     Title = "Missing Signature",
@@ -172,6 +186,9 @@ namespace Grayjay.Engine
         public string Dependency { get; set; }
         public string WarningDialog { get; set; }
         public List<string> Options { get; set; }
+
+        [JsonIgnore]
+        public string VariableOrName => (string.IsNullOrEmpty(Variable)) ? Name : Variable;
     }
     public class PluginCaptchaConfig
     {

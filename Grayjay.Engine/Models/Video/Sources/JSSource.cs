@@ -14,32 +14,51 @@ namespace Grayjay.Engine.Models.Video.Sources
     }
     public abstract class JSSource : IJSSource
     {
-        public GrayjayPlugin Plugin { get; private set; }
+        protected GrayjayPlugin _plugin { get; private set; }
         protected IJavaScriptObject _obj;
         public abstract string Type { get; }
 
         public bool HasRequestModifier { get; private set; }
+        private Request _requestModifier = null;
+
         public bool HasRequestExecutor { get; private set; }
 
         public virtual bool CanSerialize { get; } = true;
 
+        public JSSource()
+        {
+            _obj = null;
+            _plugin = null;
+            HasRequestModifier = false;
+            HasRequestExecutor = false;
+        }
         public JSSource(GrayjayPlugin plugin, IJavaScriptObject obj)
         {
             _obj = obj;
-            Plugin = plugin;
+            _plugin = plugin;
 
-            HasRequestModifier = obj.HasFunction("getRequestModifier");
+            _requestModifier = obj.GetOrDefault<Request>(plugin, "requestModifier", nameof(JSSource), null);
+            HasRequestModifier = _requestModifier != null || obj.HasFunction("getRequestModifier");
             HasRequestExecutor = obj.HasFunction("getRequestExecutor");
         }
 
-        public RequestModifier GetRequestModifier()
+        public IRequestModifier GetRequestModifier()
         {
+            if (_obj == null)
+                return null;
+
+            if (_requestModifier != null)
+                return new AdhocRequestModifier((url, headers) =>
+                {
+                    return _requestModifier.Modify(_plugin, url, headers);
+                });
+
             if (!HasRequestModifier || _obj == null)
                 return null;
 
             var result = _obj.InvokeMethod("getRequestModifier");
             if (result is IJavaScriptObject)
-                return V8Converter.ConvertValue<RequestModifier>(Plugin, result);
+                return V8Converter.ConvertValue<RequestModifier>(_plugin, result);
             else
                 return null;
         }
@@ -51,12 +70,16 @@ namespace Grayjay.Engine.Models.Video.Sources
 
             var result = _obj.InvokeMethod("getRequestExecutor");
             if (result is IJavaScriptObject)
-                return V8Converter.ConvertValue<RequestExecutor>(Plugin, result);
+                return V8Converter.ConvertValue<RequestExecutor>(_plugin, result);
             else
                 return null;
         }
 
 
+        public GrayjayPlugin GetUnderlyingPlugin()
+        {
+            return _plugin;
+        }
         public IJavaScriptObject GetUnderlyingObject()
         {
             return _obj;

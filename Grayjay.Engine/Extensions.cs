@@ -1,5 +1,6 @@
 ﻿using Grayjay.Engine.Pagers;
 using Grayjay.Engine.V8;
+using HtmlAgilityPack;
 using Microsoft.ClearScript;
 using Microsoft.ClearScript.JavaScript;
 using Microsoft.ClearScript.V8;
@@ -94,6 +95,14 @@ namespace Grayjay.Engine
         }
 
 
+        public static object ToPropertyBag<A>(this Dictionary<string,A> obj, ScriptEngine engine)
+        {
+            var bag = new PropertyBag();
+            foreach (var kv in obj)
+                bag.Add(kv.Key, kv.Value);
+            return bag;
+        }
+
         public static object ToScriptArray(this IEnumerable objs, ScriptEngine engine)
         {
             return engine.Script.Array.from(objs);
@@ -129,34 +138,21 @@ namespace Grayjay.Engine
             if (queryDomain.StartsWith("."))
             {
                 var parts = domain.ToLower().Split(".");
-                var queryParts = queryDomain.ToLower().TrimStart('.').Split(".");
+                var queryParts = queryDomain.ToLower().TrimStart('.').Split(".", StringSplitOptions.RemoveEmptyEntries);
 
-                //domain.com.au < .domain.com.au
-                if (parts.Length == queryParts.Length)
-                {
-                    for (int i = 0; i < parts.Length; i++)
-                        if (parts[i] != queryParts[i])
-                            return false;
-                    return true;
-                }
-                //example.domain.com.au < .domain.com.au
-                else if (parts.Length - 1 == queryParts.Length)
-                {
-                    for (int i = 1; i < parts.Length; i++)
-                        if (parts[i] != queryParts[i - 1])
-                            return false;
-                    return true;
-                }
-                else
-                    return false;
-
-                if (queryParts.Length < 3)
+                if (queryParts.Length < 2)
                     throw new InvalidOperationException($"Illegal use of wildcards on First-Level-Domain ({queryDomain}) while checking domain ({domain})");
-                if(queryParts.Length >= 3)
+                if(queryParts.Length >= 2)
                 {
-                    var isSLD = _slds.Contains("." + queryParts[queryParts.Length - 2] + "." + queryParts[queryParts.Length - 1]);
-                    if (isSLD && queryParts.Length <= 3)
+                    //Prevent SLDs or higher domain exploitation.
+                    string possibleDomain = "." + string.Join(".", queryParts);
+                    if (_slds.Contains(possibleDomain))
+                        throw new InvalidOperationException($"Illegal use of wildcards on Root-Level-Domain ({queryDomain}) while checking domain ({domain})");
+                    /*
+                    var isSLD = _slds.Contains("." + queryParts[queryParts.Length - 1] + "." + queryParts[queryParts.Length]);
+                    if (isSLD && queryParts.Length <= 2)
                         throw new InvalidOperationException($"Illegal use of wildcards on Second-Level-Domain ({queryDomain}) while checking domain ({domain})");
+                    */
                 }
 
                 return domain.EndsWith(queryDomain) || domain == queryDomain.TrimStart('.');

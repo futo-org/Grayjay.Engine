@@ -76,10 +76,10 @@ namespace Grayjay.Engine.Models.Video.Sources
             var result = _obj.InvokeMethod("generate");
             if (result is string str)
             {
-                InitStart = _obj.GetOrDefault<int>(Plugin, "initStart", nameof(DashManifestRawSource), InitStart);
-                InitEnd = _obj.GetOrDefault<int>(Plugin, "initEnd", nameof(DashManifestRawSource), InitEnd);
-                IndexStart = _obj.GetOrDefault<int>(Plugin, "indexStart", nameof(DashManifestRawSource), IndexStart);
-                IndexEnd = _obj.GetOrDefault<int>(Plugin, "indexEnd", nameof(DashManifestRawSource), IndexEnd);
+                InitStart = _obj.GetOrDefault<int>(_plugin, "initStart", nameof(DashManifestRawSource), InitStart);
+                InitEnd = _obj.GetOrDefault<int>(_plugin, "initEnd", nameof(DashManifestRawSource), InitEnd);
+                IndexStart = _obj.GetOrDefault<int>(_plugin, "indexStart", nameof(DashManifestRawSource), IndexStart);
+                IndexEnd = _obj.GetOrDefault<int>(_plugin, "indexEnd", nameof(DashManifestRawSource), IndexEnd);
 
                 return str;
             }
