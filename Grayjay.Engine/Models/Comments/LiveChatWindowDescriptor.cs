@@ -15,5 +15,14 @@ namespace Grayjay.Engine.Models.Comments
         public List<string> RemoveElements { get; set; } = new List<string>();
         [V8Property("removeElementsInterval", true)]
         public List<string> RemoveElementsInterval { get; set; } = new List<string>();
+
+        public string Error { get; set; }
+
+
+        public LiveChatWindowDescriptor() { }
+        public LiveChatWindowDescriptor(string error)
+        {
+            Error = error;
+        }
     }
 }
