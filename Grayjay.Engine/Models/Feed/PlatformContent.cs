@@ -103,7 +103,12 @@ namespace Grayjay.Engine.Models.Feed
             try
             {
                 if (reader.TokenType == JsonTokenType.Number)
-                    return DateTime.UnixEpoch.AddSeconds(reader.GetInt64());
+                {
+                    var val = reader.GetInt64();
+                    if (val < 0)
+                        return DateTime.MinValue;
+                    return DateTimeOffset.FromUnixTimeSeconds(val).DateTime;
+                }
                 else if (reader.TokenType == JsonTokenType.Null)
                     return DateTime.MinValue;
                 else
@@ -111,14 +116,18 @@ namespace Grayjay.Engine.Models.Feed
             }
             catch(Exception ex)
             {
-                throw new ArgumentException($"Failed to parse Datetime on type [{typeToConvert.Name}] with value type [{reader.TokenType}]");
+                throw new ArgumentException($"Failed to parse Datetime on type [{typeToConvert.Name}] with value type [{reader.TokenType}]", ex);
             }
         }
 
         public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options)
         {
-            long unixEpoch = (long)value.Subtract(DateTime.UnixEpoch).TotalSeconds;
-            writer.WriteNumberValue(unixEpoch);
+            if (value.Year > 9000)
+                writer.WriteNumberValue(DateTimeOffset.MaxValue.ToUnixTimeSeconds());
+            else if (value.Year < 1971)
+                writer.WriteNumberValue(DateTimeOffset.MinValue.ToUnixTimeSeconds());
+            else
+                writer.WriteNumberValue(((DateTimeOffset)value).ToUnixTimeSeconds());
         }
     }
 }
