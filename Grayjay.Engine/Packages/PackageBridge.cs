@@ -26,6 +26,8 @@ namespace Grayjay.Engine.Packages
         public string buildFlavor => "desktopStable";
         [ScriptMember("buildSpecVersion")]
         public int buildSpecVersion => 2;
+        [ScriptMember("buildPlatform")]
+        public string buildPlatform => "desktop";
 
         public PackageBridge(GrayjayPlugin plugin, Action<string> onLog) : base(plugin)
         {
