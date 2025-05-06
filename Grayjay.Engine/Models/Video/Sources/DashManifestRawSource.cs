@@ -5,9 +5,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Web;
 
 namespace Grayjay.Engine.Models.Video.Sources
 {
@@ -111,6 +113,7 @@ namespace Grayjay.Engine.Models.Video.Sources
 
         public DashManifestRawSource Video { get; private set; }
         public DashManifestRawAudioSource Audio { get; private set; }
+        public ISubtitleSource Subtitles { get; private set; }
 
 
         [V8Property("name")]
@@ -135,10 +138,11 @@ namespace Grayjay.Engine.Models.Video.Sources
         public bool Priority { get; set; }
 
 
-        public DashManifestMergingRawSource(DashManifestRawSource video, DashManifestRawAudioSource audio) : base(video.GetUnderlyingPlugin(), video.GetUnderlyingObject())
+        public DashManifestMergingRawSource(DashManifestRawSource video, DashManifestRawAudioSource audio, ISubtitleSource source = null) : base(video.GetUnderlyingPlugin(), video.GetUnderlyingObject())
         {
             this.Video = video;
             this.Audio = audio;
+            this.Subtitles = source;
         }
 
         public override string Generate()
@@ -149,6 +153,27 @@ namespace Grayjay.Engine.Models.Video.Sources
             Task.WaitAll(
                 Task.Run(() => { videoDash = Video.Generate(); }),
                 Task.Run(() => { audioDash = Audio?.Generate(); }));
+
+            if((videoDash != null || audioDash != null) && Subtitles != null && !string.IsNullOrEmpty(Subtitles.Url))
+            {
+                string dashToChange = videoDash ?? audioDash;
+                var lastAdaptationSet = ADAPTATION_SET_REGEX.Match(dashToChange);
+                if (lastAdaptationSet != null && lastAdaptationSet.Success)
+                {
+                    dashToChange = dashToChange.Replace("</AdaptationSet>", "</AdaptationSet>" + $@"
+<AdaptationSet mimeType=""{Subtitles.Format}"" lang=""en""> 
+    <Representation id=""99"" bandwidth=""123"">
+        <BaseURL>{Subtitles.Url.Replace("&", "&amp;")}</BaseURL> 
+    </Representation>
+</AdaptationSet>
+");
+
+                    if (videoDash != null)
+                        videoDash = dashToChange;
+                    else
+                        audioDash = dashToChange;
+                }
+            }
 
             if (videoDash != null && audioDash == null) return videoDash;
             if (audioDash != null && videoDash == null) return audioDash;

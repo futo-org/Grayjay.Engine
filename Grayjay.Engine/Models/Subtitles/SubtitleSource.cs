@@ -24,6 +24,7 @@ namespace Grayjay.Engine.Models.Subtitles
 
         public bool HasFetch { get; set; }
 
+        public SubtitleSource() { }
         public SubtitleSource(IJavaScriptObject obj)
         {
             _obj = obj;
