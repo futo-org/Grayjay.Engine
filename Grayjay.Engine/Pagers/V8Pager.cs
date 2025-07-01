@@ -9,9 +9,9 @@ namespace Grayjay.Engine.Pagers
 {
     public class V8Pager<T> : IPager<T>
     {
-        private GrayjayPlugin _plugin;
+        protected GrayjayPlugin _plugin;
         private bool _hasMorePages = false;
-        private IJavaScriptObject _obj;
+        protected IJavaScriptObject _obj;
         private Action<T>? _objInitializer;
 
         public T[] Results { get; set; }
@@ -35,7 +35,7 @@ namespace Grayjay.Engine.Pagers
             return _hasMorePages;
         }
 
-        public void NextPage()
+        public virtual void NextPage()
         {
             try
             {

@@ -655,8 +655,11 @@ namespace Grayjay.Engine
         [JSDocsParameter("url", "", 0)]
         public virtual IPager<PlatformLiveEvent> GetLiveEvents(string url) => WithIsBusy(() =>
         {
+            if (!Capabilities.HasGetLiveEvents)
+                return null;
             EnsureEnabled();
-            return EvaluatePager<PlatformLiveEvent>($"source.getLiveEvents({SerializeParameter(url)})");
+            var obj = EvaluateRawObject($"source.getLiveEvents({SerializeParameter(url)})");
+            return new LiveEventPager(this, obj);
         });
 
         public int GetSubscriptionRateLimit()
