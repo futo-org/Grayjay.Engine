@@ -93,7 +93,7 @@ namespace Grayjay.Engine.Models.Video.Sources
             if (_obj == null)
                 throw new InvalidOperationException("Source object already closed");
 
-            var result = _obj.InvokeMethod("generate");
+            var result = _obj.InvokeV8("generate");
             if (result is string str) {
                 InitStart = _obj.GetOrDefault<int>(_plugin, "initStart", nameof(DashManifestRawSource), InitStart);
                 InitEnd = _obj.GetOrDefault<int>(_plugin, "initEnd", nameof(DashManifestRawSource), InitEnd);
