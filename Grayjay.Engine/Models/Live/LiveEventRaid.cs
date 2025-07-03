@@ -16,6 +16,9 @@ public class LiveEventRaid : PlatformLiveEvent
     [V8Property("targetUrl")]
     public string TargetUrl { get; set; }
 
+    [V8Property("isOutgoing", true)]
+    public bool IsOutgoing { get; set; } = true;
+
     public LiveEventRaid(IJavaScriptObject obj) : base(obj)
     {
 
