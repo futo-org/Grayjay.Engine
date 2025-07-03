@@ -10,10 +10,10 @@ public class LiveEventRaid : PlatformLiveEvent
     [V8Property("targetName")]
     public string TargetName { get; set; }
 
-    [V8Property("targetUrl")]
+    [V8Property("targetThumbnail")]
     public string TargetThumbnail { get; set; }
 
-    [V8Property("targetThumbnail")]
+    [V8Property("targetUrl")]
     public string TargetUrl { get; set; }
 
     public LiveEventRaid(IJavaScriptObject obj) : base(obj)
