@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 
 namespace Grayjay.Engine.Packages
 {
@@ -51,6 +52,13 @@ namespace Grayjay.Engine.Packages
         {
             Logger.Info<PackageBridge>("Toast:" + str);
             _plugin?.TriggerToast(str);
+        }
+
+        [ScriptMember]
+        public void sleep(int length)
+        {
+            Logger.Info<PackageBridge>("Sleep:" + length.ToString() + "ms");
+            Thread.Sleep(length);
         }
 
 

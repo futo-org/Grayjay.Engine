@@ -5,6 +5,7 @@ using Grayjay.Engine.Models.Comments;
 using Grayjay.Engine.Models.Detail;
 using Grayjay.Engine.Models.Feed;
 using Grayjay.Engine.Models.General;
+using Grayjay.Engine.Models.Live;
 using Grayjay.Engine.Models.Playback;
 using Grayjay.Engine.Models.Video.Additions;
 using Grayjay.Engine.Models.Video.Sources;
@@ -688,6 +689,16 @@ namespace Grayjay.Engine
         });
 
 
+        [JSDocs(15, "getLiveEvents", "source.getLiveEvents()", "")]
+        [JSDocsParameter("url", "", 0)]
+        public virtual IPager<PlatformLiveEvent> GetLiveEvents(string url) => WithIsBusy(() =>
+        {
+            if (!Capabilities.HasGetLiveEvents)
+                return null;
+            EnsureEnabled();
+            var obj = EvaluateRawObject($"source.getLiveEvents({SerializeParameter(url)})");
+            return new LiveEventPager(this, obj);
+        });
 
         public int GetSubscriptionRateLimit()
         {
