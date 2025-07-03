@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -183,7 +184,90 @@ namespace Grayjay.Engine.Web
         public Response GET(string url, Dictionary<string, string> headers) => Request("GET", url, headers);
         public Response POST(string url, string body, Dictionary<string, string> headers) => Request("POST", url, body, headers);
 
+        public SocketObject Socket(string url, Dictionary<string, string> headers = null, SocketObject.Handlers handlers = null)
+        {
+            var socket = new SocketObject(url, headers, handlers);
+            socket.Connect();
+            return socket;
+        }
+        public class SocketObject
+        {
+            private string _url;
+            private Dictionary<string, string> _headers = null;
+            private SocketObject.Handlers _handlers;
 
+            private ClientWebSocket _socket = null;
+
+            public SocketObject(string url, Dictionary<string, string> headers = null, SocketObject.Handlers handlers = null)
+            {
+                _handlers = handlers ?? new Handlers();
+                _url = url;
+                _headers = headers;
+                _socket = new ClientWebSocket();
+            }
+            
+            public void Connect()
+            {
+                foreach (var kv in _headers)
+                    _socket.Options.SetRequestHeader(kv.Key, kv.Value);
+
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _socket.ConnectAsync(new Uri(_url), CancellationToken.None);
+                        _handlers?.Open();
+
+                        var buffer = new byte[4096];
+                        while (_socket.State == WebSocketState.Open)
+                        {
+                            var result = await _socket.ReceiveAsync(buffer, CancellationToken.None);
+                            if (result.MessageType == WebSocketMessageType.Close)
+                            {
+                                _handlers?.Closing();
+                                await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+                                _handlers?.Closed();
+                            }
+                            else
+                            {
+                                if (result.MessageType == WebSocketMessageType.Text)
+                                    _handlers?.Message(Encoding.UTF8.GetString(buffer, 0, result.Count));
+                            }
+                        }
+                    }
+                    catch(Exception ex)
+                    {
+                        _handlers?.Failure(ex);
+                    }
+                    _socket.Dispose();
+                });
+            }
+            
+            public void Send(string msg)
+            {
+                _socket.SendAsync(Encoding.UTF8.GetBytes(msg), WebSocketMessageType.Text, true, CancellationToken.None);
+            }
+
+            public void Close(int code, string reason)
+            {
+                _socket.CloseAsync((WebSocketCloseStatus)code, reason, CancellationToken.None);
+            }
+
+            public class Handlers
+            {
+                public event Action OnOpen;
+                public event Action<string> OnMessage;
+                public event Action OnClosing;
+                public event Action OnClosed;
+                public event Action<Exception> OnFailure;
+
+                public void Open() => OnOpen?.Invoke();
+                public void Message(string msg) => OnMessage?.Invoke(msg);
+                public void Closing() => OnClosing?.Invoke();
+                public void Closed() => OnClosed?.Invoke();
+                public void Failure(Exception ex) => OnFailure?.Invoke(ex);
+            }
+        }
 
         public class Response
         {

@@ -381,7 +381,8 @@ namespace Grayjay.Engine
             catch(Exception ex) { }
             IsInitialized = false;
             IsEnabled = false;
-            _activePlugins.TryRemove(_engine, out _);
+            if(_engine != null)
+                _activePlugins.TryRemove(_engine, out _);
             _engine?.Dispose();
             _engine = null;
             foreach (Package package in _packages ?? new List<Package>())
