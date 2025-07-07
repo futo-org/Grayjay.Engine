@@ -16,6 +16,7 @@ using System.Reflection;
 using System.Text;
 using static Grayjay.Engine.Extensions;
 using static Grayjay.Engine.Packages.PackageHttp;
+using static Grayjay.Engine.Packages.PackageHttp.PackageHttpClient;
 using static Grayjay.Engine.Web.ManagedHttpClient;
 
 namespace Grayjay.Engine.Packages
@@ -44,7 +45,7 @@ namespace Grayjay.Engine.Packages
         private Dictionary<string, Dictionary<string, string>> _currentCookieMap = null;
         private Dictionary<string, Dictionary<string, string>> _otherCookieMap = null;
 
-        protected List<PackageHttpClient.SocketResult> aliveSockets = new List<PackageHttpClient.SocketResult>();
+        protected List<SocketResult> aliveSockets = new List<SocketResult>();
         protected bool _cleanedUp = false;
 
 
@@ -106,7 +107,7 @@ namespace Grayjay.Engine.Packages
         }
 
         [ScriptMember("socket")]
-        public object Socket(string url, ScriptObject headers = null, bool useAuth = false)
+        public SocketResult Socket(string url, ScriptObject headers = null, bool useAuth = false)
         {
             return GetDefaultClient(useAuth).Socket(url, headers);
         }
@@ -495,7 +496,7 @@ namespace Grayjay.Engine.Packages
             }
 
             [ScriptMember("socket")]
-            public object Socket(string url, ScriptObject headers = null)
+            public SocketResult Socket(string url, ScriptObject headers = null)
             {
                 ApplyDefaultHeaders(headers);
                 var socket = new SocketResult(_package, this, _client, url, headers);
@@ -507,83 +508,86 @@ namespace Grayjay.Engine.Packages
                 return socket;
             }
 
-            public class SocketResult
+        }
+
+
+        [NoDefaultScriptAccess]
+        public class SocketResult
+        {
+            private bool _isOpen = false;
+            private ManagedHttpClient.SocketObject _socket = null;
+
+            private IJavaScriptObject _listeners = null;
+
+            private PackageHttp _package;
+            private PackageHttpClient _packageClient;
+            private PluginHttpClient _client;
+            private string _url = null;
+            private ScriptObject _headers = null;
+
+            public SocketResult(PackageHttp parent, PackageHttpClient pack, PluginHttpClient client, string url, ScriptObject headers)
             {
-                private bool _isOpen = false;
-                private ManagedHttpClient.SocketObject _socket = null;
+                _packageClient = pack;
+                _package = parent;
+                _client = client;
+                _url = url;
+                _headers = headers;
+            }
 
-                private IJavaScriptObject _listeners = null;
+            [ScriptMember("isOpen")]
+            public bool isOpen() => _isOpen;
 
-                private PackageHttp _package;
-                private PackageHttpClient _packageClient;
-                private PluginHttpClient _client;
-                private string _url = null;
-                private ScriptObject _headers = null;
+            [ScriptMember("connect")]
+            public void connect(IJavaScriptObject socketObj, object extraPara = null)
+            {
+                bool hasOpen = socketObj.HasFunction("open");
+                bool hasMessage = socketObj.HasFunction("message");
+                bool hasClosing = socketObj.HasFunction("closing");
+                bool hasClosed = socketObj.HasFunction("closed");
+                bool hasFailure = socketObj.HasFunction("failure");
+                _listeners = socketObj;
 
-                public SocketResult(PackageHttp parent, PackageHttpClient pack, PluginHttpClient client, string url, ScriptObject headers)
-                {
-                    _packageClient = pack;
-                    _package = parent;
-                    _client = client;
-                    _url = url;
-                    _headers = headers;
-                }
+                var client = _client;
+                var handlers = new SocketObject.Handlers();
+                if (hasOpen)
+                    handlers.OnOpen += () =>
+                    {
+                        _isOpen = true;
+                        socketObj.InvokeV8("open");
+                    };
+                if (hasMessage)
+                    handlers.OnMessage += (msg) => socketObj.InvokeV8("message", msg);
+                if (hasClosing)
+                    handlers.OnClosing += () => socketObj.InvokeV8("closing");
+                if (hasClosed)
+                    handlers.OnClosed += () =>
+                    {
+                        _isOpen = false;
+                        socketObj.InvokeV8("closed");
+                    };
+                if (hasFailure)
+                    handlers.OnFailure += (ex) =>
+                    {
+                        _isOpen = false;
+                        socketObj.InvokeV8("failure", ex.Message);
+                    };
+                _socket = client.Socket(_url, _headers.ToDictionary<string>(), handlers);
+            }
 
-                [ScriptMember("isOpen")]
-                public bool IsOpen() => _isOpen;
-
-                [ScriptMember("connect")]
-                public void Connect(IJavaScriptObject socketObj)
-                {
-                    bool hasOpen = socketObj.HasFunction("open");
-                    bool hasMessage = socketObj.HasFunction("message");
-                    bool hasClosing = socketObj.HasFunction("closing");
-                    bool hasClosed = socketObj.HasFunction("closed");
-                    bool hasFailure = socketObj.HasFunction("failure");
-                    _listeners = socketObj;
-
-                    var client = _client;
-                    var handlers = new SocketObject.Handlers();
-                    if (hasOpen)
-                        handlers.OnOpen += () =>
-                        {
-                            _isOpen = true;
-                            socketObj.InvokeV8("open");
-                        };
-                    if (hasMessage)
-                        handlers.OnMessage += (msg) => socketObj.InvokeV8("message", msg);
-                    if (hasClosing)
-                        handlers.OnClosing += () => socketObj.InvokeV8("closing");
-                    if (hasClosed)
-                        handlers.OnClosed += () =>
-                        {
-                            _isOpen = false;
-                            socketObj.InvokeV8("closed");
-                        };
-                    if (hasFailure)
-                        handlers.OnFailure += (ex) =>
-                        {
-                            _isOpen = false;
-                            socketObj.InvokeV8("failure", ex.Message);
-                        };
-                    _socket = client.Socket(_url, _headers.ToDictionary<string>(), handlers);
-                }
-
-                [ScriptMember("send")]
-                public void Send(string msg)
-                {
-                    _socket?.Send(msg);
-                }
-                [ScriptMember("close")]
-                public void Close()
-                {
-                    _socket?.Close(1000, "");
-                }
-                [ScriptMember("close")]
-                public void Close(int code, string reason = "")
-                {
-                    _socket?.Close(code, reason);
-                }
+            [ScriptMember("send")]
+            public void send(string msg)
+            {
+                _socket?.Send(msg);
+            }
+            [ScriptMember("close")]
+            public void close()
+            {
+                _socket?.Close(1000, "");
+            }
+            [ScriptMember("close")]
+            public void close(int code, string reason = "")
+            {
+                _socket?.Close(code, reason);
             }
         }
     }
