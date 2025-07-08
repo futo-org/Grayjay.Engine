@@ -1,5 +1,6 @@
 ﻿using Grayjay.Engine.Models.Video.Additions;
 using Grayjay.Engine.Models.Video.Sources;
+using Grayjay.Engine.V8;
 using Grayjay.Engine.Web;
 using Microsoft.ClearScript;
 using Microsoft.ClearScript.V8;
@@ -29,6 +30,19 @@ namespace Grayjay.Engine.Packages
         public int buildSpecVersion => 2;
         [ScriptMember("buildPlatform")]
         public string buildPlatform => "desktop";
+
+        [ScriptMember("supportedFeatures")]
+        public object supportedFeatures
+        {
+            get
+            {
+                return new string[]
+                {
+                    "ReloadRequiredException",
+                    "Async"
+                }.ToScriptArray();
+            }
+        }
 
         public PackageBridge(GrayjayPlugin plugin, Action<string> onLog) : base(plugin)
         {

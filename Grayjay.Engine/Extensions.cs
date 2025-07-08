@@ -63,14 +63,19 @@ namespace Grayjay.Engine
 
         public static object InvokeV8(this IJavaScriptObject obj, string method, params object[] args)
         {
-            var result = obj.InvokeMethod(method, args);
+            var plugin = GrayjayPlugin.GetEnginePlugin(obj.Engine);
+            var result = (plugin != null) ? plugin.InterceptExceptions(() => obj.InvokeMethod(method, args)) :
+                obj.InvokeMethod(method, args);
+
             if (result is IJavaScriptObject jresult && jresult.Kind == JavaScriptObjectKind.Promise)
                 return jresult.ToV8ValueObjectBlocking();
             return result;
         }
         public static T InvokeV8<T>(this IJavaScriptObject obj, string method, params object[] args)
         {
-            var result = obj.InvokeMethod(method, args);
+            var plugin = GrayjayPlugin.GetEnginePlugin(obj.Engine);
+            var result = (plugin != null) ? plugin.InterceptExceptions(() => obj.InvokeMethod(method, args)) :
+                obj.InvokeMethod(method, args);
             if (result is IJavaScriptObject jresult && jresult.Kind == JavaScriptObjectKind.Promise)
                 return (T)jresult.ToV8ValueObjectBlocking();
             return (T)result;

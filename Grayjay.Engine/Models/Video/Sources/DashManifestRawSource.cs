@@ -1,4 +1,5 @@
-﻿using Grayjay.Engine.Models.Video.Additions;
+﻿using Grayjay.Engine.Exceptions;
+using Grayjay.Engine.Models.Video.Additions;
 using Grayjay.Engine.V8;
 using Microsoft.ClearScript.JavaScript;
 using System;
@@ -150,10 +151,19 @@ namespace Grayjay.Engine.Models.Video.Sources
             Stopwatch genWatch = Stopwatch.StartNew();
             string videoDash = null;
             string audioDash = null;
-            Task.WaitAll(
-                Task.Run(() => { videoDash = Video.Generate(); }),
-                Task.Run(() => { audioDash = Audio?.Generate(); }));
-
+            try
+            {
+                Task.WaitAll(
+                    Task.Run(() => { videoDash = Video.Generate(); }),
+                    Task.Run(() => { audioDash = Audio?.Generate(); }));
+            }
+            catch(AggregateException exs)
+            {
+                var reloadReq = exs.InnerExceptions.FirstOrDefault(x => x is ScriptReloadRequiredException);
+                if (reloadReq != null)
+                    throw reloadReq;
+                throw;
+            }
             if((videoDash != null || audioDash != null) && Subtitles != null && !string.IsNullOrEmpty(Subtitles.Url))
             {
                 string dashToChange = videoDash ?? audioDash;

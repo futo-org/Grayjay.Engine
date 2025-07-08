@@ -38,7 +38,7 @@ namespace Grayjay.Engine.Models.Subtitles
         {
             if (!HasFetch)
                 throw new InvalidOperationException("This subtitle doesn't support getSubtitles");
-            return (string)_obj.InvokeMethod("getSubtitles");
+            return (string)_obj.InvokeV8("getSubtitles");
         }
 
         public Uri? GetSubtitlesUri()

@@ -52,7 +52,7 @@ namespace Grayjay.Engine.Models.Detail
             if (!_hasGetContentRecommendations || underlying == null) //TODO: Check if object available
                 return null;
 
-            var contentPagerObj = (IJavaScriptObject)underlying.InvokeMethod("getContentRecommendations");
+            var contentPagerObj = (IJavaScriptObject)underlying.InvokeV8("getContentRecommendations");
             var plugin = GrayjayPlugin.GetEnginePlugin(underlying.Engine);
             return new V8Pager<PlatformContent>(plugin, contentPagerObj);
         }

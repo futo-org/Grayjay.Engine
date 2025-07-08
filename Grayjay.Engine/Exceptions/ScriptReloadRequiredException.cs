@@ -3,13 +3,17 @@ using Microsoft.ClearScript;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Security.Cryptography.X509Certificates;
 
 namespace Grayjay.Engine.Exceptions
 {
     public class ScriptReloadRequiredException : ScriptException
     {
+        public string ReloadData { get; set; }
+
         public ScriptReloadRequiredException(PluginConfig config, string error, string reloadData, Exception? ex = null, string? stack = null, string? code = null) : base(config, error, ex, stack, code)
         {
+            ReloadData = reloadData;
         }
 
 

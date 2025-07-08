@@ -26,7 +26,7 @@ namespace Grayjay.Engine.Pagers
 
             _objInitializer = objectInitializer;
 
-            _hasMorePages = (bool?)jobj.InvokeMethod("hasMorePagers") ?? false;
+            _hasMorePages = (bool?)jobj.InvokeV8("hasMorePagers") ?? false;
             UpdateResults();
         }
 
@@ -39,7 +39,7 @@ namespace Grayjay.Engine.Pagers
         {
             try
             {
-                var obj = _obj.InvokeMethod("nextPage");
+                var obj = _obj.InvokeV8("nextPage");
                 if (obj is IJavaScriptObject)
                     _obj = (IJavaScriptObject)obj;
 
@@ -61,7 +61,7 @@ namespace Grayjay.Engine.Pagers
                 foreach (var obj in Results)
                     _objInitializer?.Invoke(obj);
 
-            _hasMorePages = (bool?)_obj.InvokeMethod("hasMorePagers") ?? false;
+            _hasMorePages = (bool?)_obj.InvokeV8("hasMorePagers") ?? false;
         }
 
         public T[] GetResults()
@@ -85,7 +85,7 @@ namespace Grayjay.Engine.Pagers
             _plugin = plugin;
             _objInitializer = objectInitializer;
 
-            _hasMorePages = (bool?)jobj.InvokeMethod("hasMorePagers") ?? false;
+            _hasMorePages = (bool?)jobj.InvokeV8("hasMorePagers") ?? false;
             UpdateResults();
         }
 
@@ -98,7 +98,7 @@ namespace Grayjay.Engine.Pagers
         {
             try
             {
-                var obj = _obj.InvokeMethod("nextPage");
+                var obj = _obj.InvokeV8("nextPage");
                 if (obj is IJavaScriptObject)
                     _obj = (IJavaScriptObject)obj;
 
@@ -119,7 +119,7 @@ namespace Grayjay.Engine.Pagers
                 .ToArray();
 
 
-            _hasMorePages = (bool?)_obj.InvokeMethod("hasMorePagers") ?? false;
+            _hasMorePages = (bool?)_obj.InvokeV8("hasMorePagers") ?? false;
         }
 
         public R[] GetResults()
