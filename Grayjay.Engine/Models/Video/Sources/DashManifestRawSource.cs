@@ -19,6 +19,7 @@ namespace Grayjay.Engine.Models.Video.Sources
         IRequestModifier GetRequestModifier();
         RequestExecutor GetRequestExecutor();
         string Generate();
+        Task<string> GenerateAsync(out V8PromiseMetadata promiseMeta);
 
 
         public int InitStart { get; set; }
@@ -104,6 +105,33 @@ namespace Grayjay.Engine.Models.Video.Sources
                 return str;
             }
             else throw new NotImplementedException("Unsupported generate type: " + (result?.GetType()?.ToString() ?? ""));
+        }
+        public virtual Task<string> GenerateAsync(out V8PromiseMetadata promiseMeta)
+        {
+            if (!HasGenerate)
+            {
+                promiseMeta = null;
+                return Task.FromResult(Manifest);
+            }
+            if (_obj == null)
+                throw new InvalidOperationException("Source object already closed");
+
+            var task = _obj.InvokeV8Async("generate", out promiseMeta);
+
+            return task.ContinueWith((t) =>
+            {
+                var result = task.Result;
+                if (result is string str)
+                {
+                    InitStart = _obj.GetOrDefault<int>(_plugin, "initStart", nameof(DashManifestRawSource), InitStart);
+                    InitEnd = _obj.GetOrDefault<int>(_plugin, "initEnd", nameof(DashManifestRawSource), InitEnd);
+                    IndexStart = _obj.GetOrDefault<int>(_plugin, "indexStart", nameof(DashManifestRawSource), IndexStart);
+                    IndexEnd = _obj.GetOrDefault<int>(_plugin, "indexEnd", nameof(DashManifestRawSource), IndexEnd);
+
+                    return str;
+                }
+                else throw new NotImplementedException("Unsupported generate type: " + (result?.GetType()?.ToString() ?? ""));
+            });
         }
 
     }
@@ -197,6 +225,90 @@ namespace Grayjay.Engine.Models.Video.Sources
                 return videoDash.Replace("</AdaptationSet>", "</AdaptationSet>\n" + audioAdaptationSet.Value);
             
             return audioDash;
+        }
+        public override Task<string?> GenerateAsync(out V8PromiseMetadata promiseMeta)
+        {
+            Stopwatch genWatch = Stopwatch.StartNew();
+
+            Task<string> videoDashTask = null;
+            Task<string> audioDashTask = null;
+            V8PromiseMetadata videoMetadata = null;
+            V8PromiseMetadata audioMetadata = null;
+            try
+            {
+                videoDashTask = Video.GenerateAsync(out videoMetadata);
+                audioDashTask = Audio?.GenerateAsync(out audioMetadata);
+            }
+            catch (AggregateException exs)
+            {
+                var reloadReq = exs.InnerExceptions.FirstOrDefault(x => x is ScriptReloadRequiredException);
+                if (reloadReq != null)
+                    throw reloadReq;
+                throw;
+            }
+
+            if (videoMetadata != null)
+                promiseMeta = videoMetadata;
+            else if (audioMetadata != null)
+                promiseMeta = audioMetadata;
+            else
+                promiseMeta = null;
+
+            string videoDash = null;
+            string audioDash = null;
+
+            return Task.WhenAll(new Task[]
+            {
+                videoDashTask,
+                audioDashTask
+            }.Where(x=>x != null)).ContinueWith(t =>
+            {
+                try
+                {
+                    videoDash = videoDashTask?.Result;
+                    audioDash = audioDashTask?.Result;
+                }
+                catch (AggregateException exs)
+                {
+                    var reloadReq = exs.InnerExceptions.FirstOrDefault(x => x is ScriptReloadRequiredException);
+                    if (reloadReq != null)
+                        throw reloadReq;
+                    throw;
+                }
+                if ((videoDash != null || audioDash != null) && Subtitles != null && !string.IsNullOrEmpty(Subtitles.Url))
+                {
+                    string dashToChange = videoDash ?? audioDash;
+                    var lastAdaptationSet = ADAPTATION_SET_REGEX.Match(dashToChange);
+                    if (lastAdaptationSet != null && lastAdaptationSet.Success)
+                    {
+                        dashToChange = dashToChange.Replace("</AdaptationSet>", "</AdaptationSet>" + $@"
+<AdaptationSet mimeType=""{Subtitles.Format}"" lang=""en""> 
+    <Representation id=""99"" bandwidth=""123"">
+        <BaseURL>{Subtitles.Url.Replace("&", "&amp;")}</BaseURL> 
+    </Representation>
+</AdaptationSet>
+");
+
+                        if (videoDash != null)
+                            videoDash = dashToChange;
+                        else
+                            audioDash = dashToChange;
+                    }
+                }
+
+                if (videoDash != null && audioDash == null) return videoDash;
+                if (audioDash != null && videoDash == null) return audioDash;
+                if (videoDash == null) return null;
+
+                genWatch.Stop();
+                Logger.Info<DashManifestRawSource>("Generated in: " + genWatch.Elapsed.TotalMilliseconds + "ms");
+
+                var audioAdaptationSet = ADAPTATION_SET_REGEX.Match(audioDash);
+                if (audioAdaptationSet != null && audioAdaptationSet.Success)
+                    return videoDash.Replace("</AdaptationSet>", "</AdaptationSet>\n" + audioAdaptationSet.Value);
+
+                return audioDash;
+            });
         }
 
 
