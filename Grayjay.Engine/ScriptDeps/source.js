@@ -101,6 +101,12 @@ class UnavailableException extends ScriptException {
         super("UnavailableException", msg);
     }
 }
+class ReloadRequiredException extends ScriptException {
+    constructor(msg, reloadData) {
+        super("ReloadRequiredException", msg);
+        this.reloadData = reloadData;
+    }
+}
 class AgeException extends ScriptException {
     constructor(msg) {
         super("AgeException", msg);
@@ -621,11 +627,12 @@ class LiveEventViewCount extends LiveEvent {
     }
 }
 class LiveEventRaid extends LiveEvent {
-    constructor(targetUrl, targetName, targetThumbnail) {
+    constructor(targetUrl, targetName, targetThumbnail, isOutgoing) {
         super(100);
         this.targetUrl = targetUrl;
         this.targetName = targetName;
         this.targetThumbnail = targetThumbnail;
+        this.isOutgoing = isOutgoing ?? true;
     }
 }
 

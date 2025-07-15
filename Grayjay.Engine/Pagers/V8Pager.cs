@@ -9,9 +9,9 @@ namespace Grayjay.Engine.Pagers
 {
     public class V8Pager<T> : IPager<T>
     {
-        private GrayjayPlugin _plugin;
+        protected GrayjayPlugin _plugin;
         private bool _hasMorePages = false;
-        private IJavaScriptObject _obj;
+        protected IJavaScriptObject _obj;
         private Action<T>? _objInitializer;
 
         public T[] Results { get; set; }
@@ -26,7 +26,7 @@ namespace Grayjay.Engine.Pagers
 
             _objInitializer = objectInitializer;
 
-            _hasMorePages = (bool?)jobj.InvokeMethod("hasMorePagers") ?? false;
+            _hasMorePages = (bool?)jobj.InvokeV8("hasMorePagers") ?? false;
             UpdateResults();
         }
 
@@ -35,11 +35,11 @@ namespace Grayjay.Engine.Pagers
             return _hasMorePages;
         }
 
-        public void NextPage()
+        public virtual void NextPage()
         {
             try
             {
-                var obj = _obj.InvokeMethod("nextPage");
+                var obj = _obj.InvokeV8("nextPage");
                 if (obj is IJavaScriptObject)
                     _obj = (IJavaScriptObject)obj;
 
@@ -61,7 +61,7 @@ namespace Grayjay.Engine.Pagers
                 foreach (var obj in Results)
                     _objInitializer?.Invoke(obj);
 
-            _hasMorePages = (bool?)_obj.InvokeMethod("hasMorePagers") ?? false;
+            _hasMorePages = (bool?)_obj.InvokeV8("hasMorePagers") ?? false;
         }
 
         public T[] GetResults()
@@ -85,7 +85,7 @@ namespace Grayjay.Engine.Pagers
             _plugin = plugin;
             _objInitializer = objectInitializer;
 
-            _hasMorePages = (bool?)jobj.InvokeMethod("hasMorePagers") ?? false;
+            _hasMorePages = (bool?)jobj.InvokeV8("hasMorePagers") ?? false;
             UpdateResults();
         }
 
@@ -98,7 +98,7 @@ namespace Grayjay.Engine.Pagers
         {
             try
             {
-                var obj = _obj.InvokeMethod("nextPage");
+                var obj = _obj.InvokeV8("nextPage");
                 if (obj is IJavaScriptObject)
                     _obj = (IJavaScriptObject)obj;
 
@@ -119,7 +119,7 @@ namespace Grayjay.Engine.Pagers
                 .ToArray();
 
 
-            _hasMorePages = (bool?)_obj.InvokeMethod("hasMorePagers") ?? false;
+            _hasMorePages = (bool?)_obj.InvokeV8("hasMorePagers") ?? false;
         }
 
         public R[] GetResults()

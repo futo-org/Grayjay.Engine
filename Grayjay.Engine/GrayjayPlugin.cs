@@ -5,8 +5,10 @@ using Grayjay.Engine.Models.Comments;
 using Grayjay.Engine.Models.Detail;
 using Grayjay.Engine.Models.Feed;
 using Grayjay.Engine.Models.General;
+using Grayjay.Engine.Models.Live;
 using Grayjay.Engine.Models.Playback;
 using Grayjay.Engine.Models.Video.Additions;
+using Grayjay.Engine.Models.Video.Sources;
 using Grayjay.Engine.Packages;
 using Grayjay.Engine.Pagers;
 using Grayjay.Engine.V8;
@@ -32,6 +34,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using static Microsoft.ClearScript.V8.V8CpuProfile;
 
 namespace Grayjay.Engine
 {
@@ -57,6 +60,10 @@ namespace Grayjay.Engine
         private object _enableLock = new object();
 
         private Dictionary<string, string?> _settings => Descriptor?.GetSettingsWithDefaults() ?? new Dictionary<string, string>();
+
+        private ConcurrentDictionary<string, string> _declareOnEnable = new ConcurrentDictionary<string, string>();
+
+        private string _usedReloadData = null;
 
         private ResultCapabilities? _channelCapabilities = null;
         private ResultCapabilities? _searchCapabilities = null;
@@ -150,6 +157,25 @@ namespace Grayjay.Engine
                 return HttpClientAuth;
             if (HttpClientOthers.ContainsKey(id))
                 return HttpClientOthers[id];
+            return null;
+        }
+
+        public void SetReloadData(string data = null)
+        {
+            if (data != null)
+            {
+                if (_declareOnEnable.ContainsKey("__reloadData"))
+                    _declareOnEnable.Remove("__reloadData", out _);
+            }
+            else
+                _declareOnEnable["__reloadData"] = data;
+        }
+        public string GetReloadData(bool orLast = false)
+        {
+            if (_declareOnEnable.ContainsKey("__reloadData"))
+                return _declareOnEnable["__reloadData"];
+            else if (orLast)
+                return _usedReloadData;
             return null;
         }
 
@@ -316,6 +342,10 @@ namespace Grayjay.Engine
             {
                 if (!IsInitialized)
                     throw new InvalidOperationException("Call Initialize first");
+
+                foreach (var toDeclare in _declareOnEnable)
+                    RawExecute($"var {toDeclare.Key} = " + SerializeParameter(toDeclare.Value));
+
                 string config = JsonSerializer.Serialize(Config, new JsonSerializerOptions()
                 {
                     WriteIndented = true,
@@ -324,6 +354,14 @@ namespace Grayjay.Engine
                 string enableCall = $"source.enable({SerializeConfig()}, parseSettings({SerializeSettings()}), {SerializeParameter(_savedState)})";
                 Stopwatch w = Stopwatch.StartNew();
                 RawExecute(enableCall);
+
+                if(_declareOnEnable.ContainsKey("__reloadData"))
+                {
+                    _usedReloadData = _declareOnEnable["__reloadData"];
+                    Logger.Info<GrayjayPlugin>($"Plugin [{Config.Name}] enabled with reload data: {_usedReloadData}");
+                    _declareOnEnable.Remove("__reloadData", out _);
+                }
+
                 IsEnabled = true;
                 OnLog?.Invoke(Config, $"Enabled in [{w.Elapsed.TotalMilliseconds}ms] {((!string.IsNullOrEmpty(_savedState)) ? "with saved state" : "")}");
                 w.Stop();
@@ -344,7 +382,8 @@ namespace Grayjay.Engine
             catch(Exception ex) { }
             IsInitialized = false;
             IsEnabled = false;
-            _activePlugins.TryRemove(_engine, out _);
+            if(_engine != null)
+                _activePlugins.TryRemove(_engine, out _);
             _engine?.Dispose();
             _engine = null;
             foreach (Package package in _packages ?? new List<Package>())
@@ -650,6 +689,16 @@ namespace Grayjay.Engine
         });
 
 
+        [JSDocs(15, "getLiveEvents", "source.getLiveEvents()", "")]
+        [JSDocsParameter("url", "", 0)]
+        public virtual IPager<PlatformLiveEvent> GetLiveEvents(string url) => WithIsBusy(() =>
+        {
+            if (!Capabilities.HasGetLiveEvents)
+                return null;
+            EnsureEnabled();
+            var obj = EvaluateRawObject($"source.getLiveEvents({SerializeParameter(url)})");
+            return new LiveEventPager(this, obj);
+        });
 
         public int GetSubscriptionRateLimit()
         {
@@ -683,6 +732,9 @@ namespace Grayjay.Engine
                         ScriptException scriptEx;
                         switch(pluginType)
                         {
+                            case "ReloadRequiredException":
+                                scriptEx = ScriptReloadRequiredException.FromV8(this, ex, jex);
+                                break;
                             case "CaptchaRequiredException":
                                 scriptEx = ScriptCaptchaRequiredException.FromV8(this, ex, jex);
                                 break;
@@ -787,10 +839,25 @@ namespace Grayjay.Engine
             });
         }
 
-
+        private Task<IJavaScriptObject> EvaluateRawObjectAsync(string script, bool nullable = false)
+        {
+            var obj = InterceptExceptions<IJavaScriptObject>(() =>
+            {
+                var obj = (IJavaScriptObject)_engine.Evaluate(script);
+                if (obj == null && nullable)
+                    return obj;
+                if (!(obj is IJavaScriptObject))
+                    throw new InvalidCastException($"Found {obj?.GetType()?.Name}, expected IJavaScriptObject");
+                return obj;
+            }, script);
+            if(obj.Kind == JavaScriptObjectKind.Promise)
+            {
+                return obj.ToV8ValueObjectAsync<IJavaScriptObject>();
+            }
+            return Task.FromResult(obj);
+        }
         private IJavaScriptObject EvaluateRawObject(string script, bool nullable = false)
         {
-
             return InterceptExceptions<IJavaScriptObject>(() =>
             {
                 var obj = (IJavaScriptObject)_engine.Evaluate(script);
@@ -798,6 +865,12 @@ namespace Grayjay.Engine
                     return obj;
                 if (!(obj is IJavaScriptObject))
                     throw new InvalidCastException($"Found {obj?.GetType()?.Name}, expected IJavaScriptObject");
+
+                if(obj.Kind == JavaScriptObjectKind.Promise)
+                {
+                    return obj.ToV8ValueObjectBlocking<IJavaScriptObject>();
+                }
+
                 return obj;
             }, script);
         }
@@ -819,13 +892,13 @@ namespace Grayjay.Engine
             return new V8Pager<T, R>(this, obj, modifier);
         }
 
+
         public void ValidateUrlOrThrow(string url)
         {
             var allowed = Config.IsUrlAllowed(url);
             if (!allowed)
                 throw new ScriptException(Config, "Attempted to access non-whitelisted url: " + url);
         }
-
 
         private T WithIsBusy<T>(Func<T> work)
         {

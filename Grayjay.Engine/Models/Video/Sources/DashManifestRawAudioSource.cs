@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace Grayjay.Engine.Models.Video.Sources
 {
@@ -73,7 +74,7 @@ namespace Grayjay.Engine.Models.Video.Sources
             if (_obj == null)
                 throw new InvalidOperationException("Source object already closed");
 
-            var result = _obj.InvokeMethod("generate");
+            var result = _obj.InvokeV8("generate");
             if (result is string str)
             {
                 InitStart = _obj.GetOrDefault<int>(_plugin, "initStart", nameof(DashManifestRawSource), InitStart);
@@ -86,5 +87,31 @@ namespace Grayjay.Engine.Models.Video.Sources
             else throw new NotImplementedException("Unsupported generate type: " + (result?.GetType()?.ToString() ?? ""));
         }
 
+        public virtual Task<string> GenerateAsync(out V8PromiseMetadata? promiseMeta)
+        {
+            if (!HasGenerate)
+            {
+                promiseMeta = null;
+                return Task.FromResult(Manifest);
+            }
+            if (_obj == null)
+                throw new InvalidOperationException("Source object already closed");
+
+            var task = _obj.InvokeV8Async("generate", out promiseMeta);
+            return task.ContinueWith((t) =>
+            {
+                var result = task.Result;
+                if (result is string str)
+                {
+                    InitStart = _obj.GetOrDefault<int>(_plugin, "initStart", nameof(DashManifestRawSource), InitStart);
+                    InitEnd = _obj.GetOrDefault<int>(_plugin, "initEnd", nameof(DashManifestRawSource), InitEnd);
+                    IndexStart = _obj.GetOrDefault<int>(_plugin, "indexStart", nameof(DashManifestRawSource), IndexStart);
+                    IndexEnd = _obj.GetOrDefault<int>(_plugin, "indexEnd", nameof(DashManifestRawSource), IndexEnd);
+
+                    return str;
+                }
+                else throw new NotImplementedException("Unsupported generate type: " + (result?.GetType()?.ToString() ?? ""));
+            });
+        }
     }
 }

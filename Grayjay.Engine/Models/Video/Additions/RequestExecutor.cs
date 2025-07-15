@@ -40,7 +40,7 @@ namespace Grayjay.Engine.Models.Video.Additions
             try
             {
 
-                var result = _executor.InvokeMethod("executeRequest", url, headers);
+                var result = _executor.InvokeV8("executeRequest", url, headers);
 
                 if (result is string str)
                 {
@@ -78,7 +78,7 @@ namespace Grayjay.Engine.Models.Video.Additions
 
             try
             {
-                _executor.InvokeMethod("cleanup");
+                _executor.InvokeV8("cleanup");
             }
             catch(InvalidOperationException ex)
             {
