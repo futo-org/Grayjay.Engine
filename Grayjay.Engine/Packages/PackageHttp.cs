@@ -280,12 +280,24 @@ namespace Grayjay.Engine.Packages
                 return RequestWithBody("POST", url, body, headers, useAuth);
             }
 
+            [ScriptMember]
+            public HttpBatchBuilder DUMMY()
+            {
+                _descriptors.Add(new RequestDescriptor()
+                {
+                    Method = "DUMMY"
+                });
+                return this;
+            }
+
+
+
             [ScriptMember("execute")]
             public object Execute()
             {
                 return _descriptors.AsParallel()
                     .AsOrdered()
-                    .Select(x => _package.RequestInternal(x))
+                    .Select(x => (x.Method != "DUMMY") ? _package.RequestInternal(x) : null)
                     .ToScriptArray();
             }
         }
