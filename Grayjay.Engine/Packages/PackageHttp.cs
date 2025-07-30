@@ -115,6 +115,9 @@ namespace Grayjay.Engine.Packages
 
         public HttpResponse RequestInternal(RequestDescriptor descriptor, PackageHttpClient client = null)
         {
+            if (descriptor.Method == "DUMMY")
+                return null;
+
             Stopwatch w = new Stopwatch();
             w.Start();
             if(client == null)
@@ -291,7 +294,6 @@ namespace Grayjay.Engine.Packages
             {
                 return RequestWithBody("POST", url, body, headers, useAuth);
             }
-
             [ScriptMember]
             public HttpBatchBuilder DUMMY()
             {
@@ -302,14 +304,12 @@ namespace Grayjay.Engine.Packages
                 return this;
             }
 
-
-
             [ScriptMember("execute")]
             public object Execute()
             {
                 return _descriptors.AsParallel()
                     .AsOrdered()
-                    .Select(x => (x.Method != "DUMMY") ? _package.RequestInternal(x) : null)
+                    .Select(x => _package.RequestInternal(x))
                     .ToScriptArray();
             }
         }
