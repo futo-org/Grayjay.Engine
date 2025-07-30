@@ -23,6 +23,11 @@ namespace Grayjay.Engine.Models.Feed
         [V8Property("isLive")]
         public virtual bool IsLive { get; set; }
 
+        [V8Property("playbackDate", true)]
+        public DateTime? PlaybackDate { get; set; }
+        [V8Property("playbackTime", true)]
+        public long PlaybackTime { get; set; }
+
 
         public Dictionary<string, object> Metadata { get; set; } = new Dictionary<string, object>();
 

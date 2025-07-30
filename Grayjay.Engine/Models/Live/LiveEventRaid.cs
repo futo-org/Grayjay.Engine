@@ -19,6 +19,8 @@ public class LiveEventRaid : PlatformLiveEvent
     [V8Property("isOutgoing", true)]
     public bool IsOutgoing { get; set; } = true;
 
+    [V8Property("time", true)]
+    public override long Time { get; set; }
     public LiveEventRaid(IJavaScriptObject obj) : base(obj)
     {
 

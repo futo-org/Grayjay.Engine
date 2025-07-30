@@ -1,4 +1,5 @@
 ﻿using Grayjay.Engine.Models.Feed;
+using Grayjay.Engine.Models.Live;
 using Grayjay.Engine.Models.Ratings;
 using Grayjay.Engine.Models.Subtitles;
 using Grayjay.Engine.Models.Video;
@@ -18,6 +19,7 @@ namespace Grayjay.Engine.Models.Detail
     public class PlatformVideoDetails : PlatformVideo, IPlatformContentDetails
     {
         private bool _hasGetContentRecommendations = false;
+        private bool _hasGetVODEvents = false;
 
 
 
@@ -38,11 +40,13 @@ namespace Grayjay.Engine.Models.Detail
         [V8Property("subtitles", true)]
         public virtual SubtitleSource[] Subtitles { get; set; }
 
+        public bool IsVOD => HasVODEvents();
 
         public PlatformVideoDetails() : base(null) { }
         public PlatformVideoDetails(IJavaScriptObject obj) : base(obj)
         {
             _hasGetContentRecommendations = obj.HasFunction("getContentRecommendations");
+            _hasGetVODEvents = obj.HasFunction("getVODEvents");
         }
 
 
@@ -55,6 +59,18 @@ namespace Grayjay.Engine.Models.Detail
             var contentPagerObj = (IJavaScriptObject)underlying.InvokeV8("getContentRecommendations");
             var plugin = GrayjayPlugin.GetEnginePlugin(underlying.Engine);
             return new V8Pager<PlatformContent>(plugin, contentPagerObj);
+        }
+
+        public bool HasVODEvents() => _hasGetVODEvents;
+        public VODEventPager GetVODEvents()
+        {
+            var underlying = GetUnderlyingObject();
+            if (!_hasGetVODEvents || underlying == null)
+                return null;
+
+            var plugin = GrayjayPlugin.GetEnginePlugin(underlying.Engine);
+            return new VODEventPager(plugin, underlying.InvokeV8<IJavaScriptObject>("getVODEvents"));
+
         }
     }
 }

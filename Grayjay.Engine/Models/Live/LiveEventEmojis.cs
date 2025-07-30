@@ -11,6 +11,9 @@ public class LiveEventEmojis : PlatformLiveEvent
     [V8Property("emojis")]
     public Dictionary<string, string> Emojis { get; set; }
 
+    [V8Property("time", true)]
+    public override long Time { get; set; }
+
     public LiveEventEmojis(IJavaScriptObject obj) : base(obj)
     {
 

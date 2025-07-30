@@ -23,6 +23,9 @@ public class LiveEventComment : PlatformLiveEvent, ILiveEventChatMessage
     [V8Property("badges", true)]
     public List<string> Badges { get; set; }
 
+    [V8Property("time", true)]
+    public override long Time { get; set; }
+
     public LiveEventComment(IJavaScriptObject obj) : base(obj)
     {
 

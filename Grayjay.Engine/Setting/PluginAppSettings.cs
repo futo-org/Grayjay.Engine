@@ -1,5 +1,6 @@
 ﻿
 
+using Microsoft.VisualBasic;
 using System.Text.Json.Serialization;
 
 namespace Grayjay.Engine.Setting
@@ -22,6 +23,15 @@ namespace Grayjay.Engine.Setting
             [SettingsField("Search", SettingsField.TOGGLE, "Show content in search results", 2)]
             public bool EnableSearch { get; set; } = true;
         }
+
+        [SettingsField("Sync", SettingsField.GROUP, "Synchronization of platform data", 3)]
+        public SyncSettings Sync { get; set; } = new SyncSettings();
+        public class SyncSettings
+        {
+            [SettingsField("Sync Remote History", SettingsField.TOGGLE, "Synchronize account history from this platform on startup", 1)]
+            public bool EnableHistorySync { get; set; } = false;
+        }
+
 
         [SettingsField("Rate-limit", SettingsField.GROUP, "Settings related to rate-limiting this plugin's behavior", 3)]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

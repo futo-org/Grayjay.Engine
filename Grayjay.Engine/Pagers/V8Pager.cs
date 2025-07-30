@@ -52,7 +52,7 @@ namespace Grayjay.Engine.Pagers
             }
         }
 
-        private void UpdateResults()
+        protected void UpdateResults()
         {
             var results = _obj.GetProperty("results");
             Results = V8Converter.ConvertValue<T[]>(_plugin, results);

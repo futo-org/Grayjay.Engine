@@ -14,6 +14,7 @@ public class PlatformLiveEvent : IV8Polymorphic
 {
     private IJavaScriptObject _object;
     public virtual LiveEventType Type { get; } = LiveEventType.UNKNOWN;
+    public virtual long Time { get; set; }
 
     public PlatformLiveEvent(IJavaScriptObject obj = null)
     {

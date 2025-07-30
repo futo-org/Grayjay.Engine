@@ -74,6 +74,8 @@ namespace Grayjay.Engine
 
         public bool IsInitialized { get; private set; }
         public bool IsEnabled { get; private set; }
+        
+        public bool IsLoggedIn { get; private set; }
 
         private List<Package> _packages = new List<Package>();
 
@@ -119,6 +121,8 @@ namespace Grayjay.Engine
 
             _auth = descriptor.GetAuth();
             _captcha = descriptor.GetCaptchaData();
+
+            IsLoggedIn = _auth != null;
 
             if (client != null)
                 client.SetPlugin(this);
@@ -225,6 +229,7 @@ namespace Grayjay.Engine
                 HasSearchPlaylists = (bool)_engine.Evaluate("!!source.searchPlaylists"),
                 HasGetPlaylist = (bool)_engine.Evaluate("!!source.getPlaylist"),
                 HasGetUserPlaylists = (bool)_engine.Evaluate("!!source.getUserPlaylists"),
+                HasGetUserHistory = (bool)_engine.Evaluate("!!source.getUserHistory"),
                 HasSearchChannelContents = (bool)_engine.Evaluate("!!source.searchChannelContents"),
                 HasSaveState = (bool)_engine.Evaluate("!!source.saveState"),
                 HasGetPlaybackTracker = (bool)_engine.Evaluate("!!source.getPlaybackTracker"),
@@ -687,9 +692,20 @@ namespace Grayjay.Engine
             EnsureEnabled();
             return EvaluateObject<List<string>>($"source.getUserPlaylists()");
         });
+        [JSDocs(16, "getUserHistory", "source.getUserHistory()", "")]
+        public virtual IPager<PlatformContent> getUserHistory() => WithIsBusy(() =>
+        {
+            if (!Capabilities.HasGetUserPlaylists)
+                return null;
+            EnsureEnabled();
+            return EvaluatePager<PlatformContent>($"source.getUserHistory()", (content) =>
+            {
+                content.ID.PluginID = Config.ID;
+            });
+        });
 
 
-        [JSDocs(15, "getLiveEvents", "source.getLiveEvents()", "")]
+        [JSDocs(17, "getLiveEvents", "source.getLiveEvents()", "")]
         [JSDocsParameter("url", "", 0)]
         public virtual IPager<PlatformLiveEvent> GetLiveEvents(string url) => WithIsBusy(() =>
         {
@@ -1078,6 +1094,7 @@ namespace Grayjay.Engine
             public bool HasSearchPlaylists { get; set; }
             public bool HasGetPlaylist { get; set; }
             public bool HasGetUserPlaylists { get; set; }
+            public bool HasGetUserHistory { get; set; }
             public bool HasSearchChannelContents { get; set; }
             public bool HasSaveState { get; set; }
             public bool HasGetPlaybackTracker { get; set; }

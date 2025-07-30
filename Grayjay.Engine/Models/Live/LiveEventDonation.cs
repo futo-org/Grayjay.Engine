@@ -29,6 +29,9 @@ public class LiveEventDonation : PlatformLiveEvent, ILiveEventChatMessage
     [V8Property("expire", true)]
     public int Expire { get; set; } = 6000;
 
+    [V8Property("time", true)]
+    public override long Time { get; set; }
+
     public bool HasExpired()
     {
         _hasExpired = _hasExpired || (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _creationTimestamp) > Expire;
