@@ -1,6 +1,7 @@
 ﻿using Grayjay.Engine;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
@@ -45,6 +46,33 @@ namespace Grayjay.Engine.Setting
                 Fields = SettingsField.FromObject(obj)
             };
         }
+
+        public SettingsObject<T> ApplyConditionalSettings(Dictionary<string, Func<bool>> conditions)
+        {
+            foreach(var field in Fields)
+            {
+                ApplyConditionalSetting(field, conditions);
+            }
+            return this;
+        }
+        public static SettingsField ApplyConditionalSetting(SettingsField setting, Dictionary<string, Func<bool>> conditions)
+        {
+            if (setting.ID != null && conditions.ContainsKey(setting.ID))
+            {
+                var condition = conditions[setting.ID];
+                setting.Visible = condition();
+            }
+
+            if (setting is SettingsFieldGroup settingGroup)
+            {
+                foreach (var subSetting in settingGroup.Fields)
+                {
+                    ApplyConditionalSetting(subSetting, conditions);
+                }
+            }
+
+            return setting;
+        }
     }
 
     public class SettingsFieldAttribute: Attribute
@@ -83,6 +111,7 @@ namespace Grayjay.Engine.Setting
     [JsonDerivedType(typeof(SettingsFieldGroupFlat))]
     public abstract class SettingsField
     {
+        public string ID { get; set; }
         public abstract string Type { get; }
         public string Title { get; set; }
         public string Description { get; set; }
@@ -91,8 +120,11 @@ namespace Grayjay.Engine.Setting
         public string Dependency { get; set; }
         public string WarningDialog { get; set; }
 
-        public SettingsField(string title, string description, string property = null)
+        public bool Visible { get; set; } = true;
+
+        public SettingsField(string title, string description, string property = null, string id = null)
         {
+            ID = id;
             Title = title;
             Description = description;
             Property = property.ToCamelCased();
@@ -118,17 +150,17 @@ namespace Grayjay.Engine.Setting
             switch(attr.Type)
             {
                 case TOGGLE:
-                    return new SettingsFieldToggle(attr.Name, attr.Description, info.Name, (bool)value);
+                    return new SettingsFieldToggle(attr.Name, attr.Description, info.Name, (bool)value, attr?.ID);
                 case DROPDOWN:
                     SettingsDropdownOptionsAttribute attrDropdown = info.GetCustomAttribute<SettingsDropdownOptionsAttribute>();
                     if (attrDropdown != null)
-                        return new SettingsFieldDropDown(attr.Name, attr.Description, info.Name, (int)value, attrDropdown.Options);
+                        return new SettingsFieldDropDown(attr.Name, attr.Description, info.Name, (int)value, attr?.ID, attrDropdown.Options);
                     else
                         return null;
                 case GROUP:
-                    return new SettingsFieldGroup(attr.Name, attr.Description, info.Name, FromObject(value?.GetType(), value));
+                    return new SettingsFieldGroup(attr.Name, attr.Description, info.Name, attr?.ID, FromObject(value?.GetType(), value));
                 case READONLY:
-                    return new SettingsFieldReadOnly(attr.Name, attr.Description, info.Name, (string)value);
+                    return new SettingsFieldReadOnly(attr.Name, attr.Description, info.Name, (string)value, attr?.ID);
                 default:
                     return null;
             }
@@ -147,7 +179,7 @@ namespace Grayjay.Engine.Setting
         public override string Type => BUTTON;
         public string Icon { get; set; }
 
-        public SettingsFieldButton(string name, string description, string property, string icon) : base(name, description, property)
+        public SettingsFieldButton(string name, string description, string property, string icon, string id = null) : base(name, description, property, id)
         {
             Icon = icon;
         }
@@ -157,7 +189,7 @@ namespace Grayjay.Engine.Setting
         public override string Type => TOGGLE;
         public bool Value { get; set; }
 
-        public SettingsFieldToggle(string name, string description, string property, bool value): base(name, description, property)
+        public SettingsFieldToggle(string name, string description, string property, bool value, string id = null) : base(name, description, property, id)
         {
             Value = value;
         }
@@ -169,7 +201,7 @@ namespace Grayjay.Engine.Setting
         public SettingsField[] Fields { get; set; }
 
 
-        public SettingsFieldGroup(string name, string description, string property, params SettingsField[] subFields) : base(name, description, property)
+        public SettingsFieldGroup(string name, string description, string property, string id = null, params SettingsField[] subFields) : base(name, description, property, id)
         {
             Fields = subFields;
         }
@@ -178,7 +210,7 @@ namespace Grayjay.Engine.Setting
     {
         public override string Type => GROUPFLAT;
 
-        public SettingsFieldGroupFlat(string name, string description, string property, params SettingsField[] subFields) : base(name, description, property, subFields)
+        public SettingsFieldGroupFlat(string name, string description, string property, string id = null, params SettingsField[] subFields) : base(name, description, property, id, subFields)
         {
         }
     }
@@ -188,7 +220,7 @@ namespace Grayjay.Engine.Setting
         public string[] Options { get; set; }
         public int Value { get; set; }
 
-        public SettingsFieldDropDown(string name, string description, string property, int value, params string[] options) : base(name, description, property)
+        public SettingsFieldDropDown(string name, string description, string property, int value, string id = null, params string[] options) : base(name, description, property, id)
         {
             Options = options;
             Value = value;
@@ -199,7 +231,7 @@ namespace Grayjay.Engine.Setting
         public override string Type => READONLY;
         public string Text { get; set; }
 
-        public SettingsFieldReadOnly(string name, string description, string property, string text) : base(name, description, property)
+        public SettingsFieldReadOnly(string name, string description, string property, string text, string id = null) : base(name, description, property, id)
         {
             Text = text;
         }

@@ -24,11 +24,11 @@ namespace Grayjay.Engine.Setting
             public bool EnableSearch { get; set; } = true;
         }
 
-        [SettingsField("Sync", SettingsField.GROUP, "Synchronization of platform data", 3)]
+        [SettingsField("Sync", SettingsField.GROUP, "Synchronization of platform data", 3, "sync")]
         public SyncSettings Sync { get; set; } = new SyncSettings();
         public class SyncSettings
         {
-            [SettingsField("Sync Remote History", SettingsField.TOGGLE, "Synchronize account history from this platform on startup", 1)]
+            [SettingsField("Sync Remote History", SettingsField.TOGGLE, "Synchronize account history from this platform on startup", 1, "syncHistory")]
             public bool EnableHistorySync { get; set; } = false;
         }
 

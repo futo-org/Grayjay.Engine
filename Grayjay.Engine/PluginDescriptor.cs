@@ -129,7 +129,7 @@ namespace Grayjay.Engine
                     case "Dropdown":
                         int defaultIndex = 0;
                         int.TryParse(setting.Default, out defaultIndex);
-                        field = new SettingsFieldDropDown(setting.Name, setting.Description, setting.Variable, defaultIndex, setting.Options?.ToArray() ?? new string[0]);
+                        field = new SettingsFieldDropDown(setting.Name, setting.Description, setting.Variable, defaultIndex, null, setting.Options?.ToArray() ?? new string[0]);
                         if (!Settings.ContainsKey(setting.Variable))
                             Settings.Add(setting.Variable, defaultIndex.ToString());
                         break;
