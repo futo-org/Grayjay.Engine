@@ -12,6 +12,7 @@ using System.Net;
 using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Web;
 using static Grayjay.Engine.Extensions;
 
 namespace Grayjay.Engine.Packages
@@ -78,10 +79,10 @@ namespace Grayjay.Engine.Packages
         public string OuterHtml => _node.OuterHtml;
 
         [ScriptMember("textContent")]
-        public string TextContent => _node.InnerText;
+        public string TextContent => HttpUtility.HtmlDecode(_node.InnerText ?? "");
 
         [ScriptMember("text")]
-        public string Text => _node.InnerText;
+        public string Text => HttpUtility.HtmlDecode(_node.InnerText ?? "");
 
         [ScriptMember("data")]
         public string Data => _node.InnerText;

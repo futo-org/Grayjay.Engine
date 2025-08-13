@@ -504,7 +504,7 @@ namespace Grayjay.Engine.Packages
                         ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
                     }, this);
                 }
-                throw new NotImplementedException();
+                throw new NotImplementedException("Invalid HTTP Body (" + body?.GetType().Name + ")");
             }
 
             [ScriptMember("socket")]
