@@ -36,7 +36,8 @@ namespace Grayjay.Engine
                     ev.Set();
                 },
                 (object rejected) => {
-                    ex = new NotImplementedException("Promise was rejected");
+                    ex = new NotImplementedException("Promise was rejected: " + rejected.ToString());
+                    ev.Set();
                 });
 
             ev.WaitOne();

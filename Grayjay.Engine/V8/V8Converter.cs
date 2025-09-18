@@ -35,6 +35,9 @@ namespace Grayjay.Engine.V8
             if (obj == null)
                 return null;
 
+            if (t == typeof(object))
+                return obj;
+
             object primitiveResult;
             if (TryConvertPrimitive(t, obj, out primitiveResult))
                 return primitiveResult;
@@ -48,8 +51,9 @@ namespace Grayjay.Engine.V8
             }
 
             if (!(obj is IJavaScriptObject))
+            {
                 throw new InvalidOperationException($"No supported V8 mapping found for {t.Name}");
-
+            }
             if(t.IsArray)
             {
                 IJavaScriptObject jobj = (IJavaScriptObject)obj;
@@ -155,6 +159,8 @@ namespace Grayjay.Engine.V8
             if (typeof(IV8Polymorphic).IsAssignableFrom(t))
                 t = IV8Polymorphic.GetPolymorphicType(t, (IJavaScriptObject)obj);
 
+            if (t == typeof(IJavaScriptObject))
+                return (IJavaScriptObject)obj;
             IV8Converter converter = GetConverter(t);
             return converter.Convert(plugin, (IJavaScriptObject)obj);
         }

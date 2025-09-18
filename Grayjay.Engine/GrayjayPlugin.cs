@@ -34,6 +34,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using static Grayjay.Engine.GrayjayPlugin;
 using static Microsoft.ClearScript.V8.V8CpuProfile;
 
 namespace Grayjay.Engine
@@ -81,6 +82,8 @@ namespace Grayjay.Engine
 
         public PlatformClientCapabilities Capabilities { get; private set; } = new PlatformClientCapabilities();
 
+        public Options _options;
+
         public PluginHttpClient HttpClient { get; private set; }
         public PluginHttpClient HttpClientAuth { get; private set; }
         public Dictionary<string, PluginHttpClient> HttpClientOthers { get; private set; } = new Dictionary<string, PluginHttpClient>();
@@ -102,8 +105,14 @@ namespace Grayjay.Engine
         public event Action<PluginConfig, string> OnBusyCallStart;
         public event Action<PluginConfig, string, long> OnBusyCallEnd;
 
-        public GrayjayPlugin(PluginConfig config, string script, Dictionary<string, string?>? settings = null, string savedState = null)
+        public class Options
         {
+            public bool CaseInsensitive { get; set; } = false;
+        }
+
+        public GrayjayPlugin(PluginConfig config, string script, Dictionary<string, string?>? settings = null, string savedState = null, Options options = null)
+        {
+            _options = options ?? new Options();
             Config = config;
             _script = script;
             _savedState = savedState;
@@ -112,8 +121,9 @@ namespace Grayjay.Engine
             HttpClient = new PluginHttpClient(this, null, _captcha);
             HttpClientAuth = new PluginHttpClient(this, _auth, _captcha);
         }
-        public GrayjayPlugin(PluginDescriptor descriptor, string script, string? savedState = null, PluginHttpClient client = null, PluginHttpClient clientAuth = null)
+        public GrayjayPlugin(PluginDescriptor descriptor, string script, string? savedState = null, PluginHttpClient client = null, PluginHttpClient clientAuth = null, Options options = null)
         {
+            _options = options ?? new Options();
             Config = descriptor.Config;
             Descriptor = descriptor;
             _script = script;
@@ -131,6 +141,12 @@ namespace Grayjay.Engine
 
             HttpClient = client ?? new PluginHttpClient(this, null, _captcha);
             HttpClientAuth = clientAuth ?? new PluginHttpClient(this, _auth, _captcha);
+        }
+
+
+        public GrayjayTestSystem GetTestSystem()
+        {
+            return new GrayjayTestSystem(this);
         }
 
         public void ReplaceDescriptorSettings(Dictionary<string, string> settings)
@@ -185,7 +201,11 @@ namespace Grayjay.Engine
 
         public void Initialize()
         {
-            _engine = new V8ScriptEngine(V8ScriptEngineFlags.AddPerformanceObject);
+            var flags = V8ScriptEngineFlags.AddPerformanceObject;
+            if (_options.CaseInsensitive)
+                flags = flags | V8ScriptEngineFlags.UseCaseInsensitiveMemberBinding;
+
+            _engine = new V8ScriptEngine(flags);
             SetupEngine(_engine);
             BeforeInitialize?.Invoke(this);
             _engine.Execute(Resources.ScriptPolyfil);
@@ -332,12 +352,12 @@ namespace Grayjay.Engine
             Enable();
         }
 
-        public virtual GrayjayPlugin GetCopy(bool privateCopy = false)
+        public virtual GrayjayPlugin GetCopy(bool privateCopy = false, Options options = null)
         {
-            if(!privateCopy)
-                return new GrayjayPlugin(Descriptor, _script, GetSavedState());
+            if (!privateCopy)
+                return new GrayjayPlugin(Descriptor, _script, GetSavedState(), null, null, options ?? _options);
             else
-                return new GrayjayPlugin(Descriptor.Config, _script, _settings, GetSavedState());
+                return new GrayjayPlugin(Descriptor.Config, _script, _settings, GetSavedState(), options ?? _options);
         }
 
         [JSDocs(0, "enable", "source.enable(...)", "")]
@@ -872,7 +892,7 @@ namespace Grayjay.Engine
             }
             return Task.FromResult(obj);
         }
-        private IJavaScriptObject EvaluateRawObject(string script, bool nullable = false)
+        public IJavaScriptObject EvaluateRawObject(string script, bool nullable = false)
         {
             return InterceptExceptions<IJavaScriptObject>(() =>
             {
@@ -1049,6 +1069,25 @@ namespace Grayjay.Engine
                 y.parameters?.Select(z=>new JSParameterDocs(z.Name, z.Description))?.ToList() ?? new List<JSParameterDocs>(), 
                 y.x.GetCustomAttribute<JSOptionalAttribute>() != null, null))
             .ToList();
+        }
+
+        private static List<(JSCallDocs, MethodInfo)> _jsDocsMethodsCache = null;
+        public static List<(JSCallDocs, MethodInfo)> GetJSDocsMethods()
+        {
+            if(_jsDocsMethodsCache == null)
+                _jsDocsMethodsCache = typeof(GrayjayPlugin).GetMethods().Select(x =>
+                {
+                    var attr = x.GetCustomAttribute<JSDocsAttribute>();
+                    var parameters = x.GetCustomAttributes<JSDocsParameterAttribute>().OrderBy(x => x.Order).ToArray();
+
+                    return (x, attr, parameters);
+                }).Where(x => x.attr != null)
+                .OrderBy(x => x.attr.Order)
+                .Select(y => (new JSCallDocs(y.attr?.Name ?? y.x.Name, y.attr.Code, y.attr.Description,
+                    y.parameters?.Select(z => new JSParameterDocs(z.Name, z.Description))?.ToList() ?? new List<JSParameterDocs>(),
+                    y.x.GetCustomAttribute<JSOptionalAttribute>() != null, null), y.x))
+                .ToList();
+            return _jsDocsMethodsCache;
         }
 
         [Serializable]
