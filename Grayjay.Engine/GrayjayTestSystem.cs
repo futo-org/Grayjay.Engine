@@ -100,11 +100,9 @@ namespace Grayjay.Engine
 
             var testContext = new TestContext(_plugin, isolated, source)
             {
-                Caller = test.Test.Variable
+                Caller = test.Test.Variable,
+                Metadata = context?.ToPropertyBag() ?? new PropertyBag()
             };
-            if (context != null)
-                foreach (var kv in context)
-                    testContext.Metadata[kv.Key] = kv.Value;
 
             lock (_queue)
             {
@@ -125,11 +123,9 @@ namespace Grayjay.Engine
 
             var testContext = new TestContext(_plugin)
             {
-                Isolated = isolated
+                Isolated = isolated,
+                Metadata = context?.ToPropertyBag() ?? new PropertyBag()
             };
-            if (context != null)
-                foreach (var kv in context)
-                    testContext.Metadata[kv.Key] = kv.Value;
 
             return RunTest(test, testContext);
         }
@@ -150,7 +146,8 @@ namespace Grayjay.Engine
 
             var plugin = context.Isolated ? _plugin.GetCopy(false, new GrayjayPlugin.Options()
             {
-                CaseInsensitive = true
+                CaseInsensitive = true,
+                IncludeStandardTests = true
             }) : _plugin;
             if (!plugin.IsEnabled)
             {
@@ -169,6 +166,7 @@ namespace Grayjay.Engine
             {
                 if (enableException != null)
                     throw new Exception($"Enable failed: " + enableException.Message, enableException);
+
                 var nativeRef = plugin.EvaluateRawObject("GrayjayTests");
                 if (test.Test.Implicit)
                 {
@@ -182,7 +180,7 @@ namespace Grayjay.Engine
                     test.Status = StatusType.Running;
                     var subObject = nativeRef.GetOrThrow<IJavaScriptObject>(plugin, test.Test.Variable, "TestSystem", false);
                     watch.Start();
-                    result = subObject.InvokeV8("Test", context);
+                    result = subObject.InvokeV8("test", context);
                     watch.Stop();
                 }
                 if (result is IJavaScriptObject)
@@ -276,6 +274,7 @@ namespace Grayjay.Engine
                             Name = name ?? key,
                             Description = description ?? "",
                             Variable = key,
+                            Required = new string[0],
                             Implicit = true
                         };
                         tests.Add(new TestState(test));
@@ -283,15 +282,46 @@ namespace Grayjay.Engine
                     else
                     {
                         //var func = testObj.Test;
-                        var name = testObj.GetOrDefault<string>(plugin, "Name", "Descriptor.Name", key);
-                        var description = testObj.GetOrDefault<string>(plugin, "Description", "Descriptor.Description", "No description");
+                        var name = testObj.GetOrDefault<string>(plugin, "name", "Descriptor.Name", key);
+                        var description = testObj.GetOrDefault<string>(plugin, "description", "Descriptor.Description", "No description");
+                        var requirements = testObj.GetOrDefault<string[]>(plugin, "required", "Descriptor.Description", new string[0]);
                         var test = new TestDescriptor()
                         {
                             Name = name ?? key,
                             Description = description ?? "",
+                            Required = requirements,
                             Variable = key
                         };
-                        tests.Add(new TestState(test));
+
+                        bool valid = true;
+                        if (requirements.Length > 0)
+                        {
+                            if (!plugin.Config.Testing.ContainsKey(key))
+                            {
+                                var functionMetaRaw = plugin.Config.Testing[key];
+
+                                Dictionary<string, string> functionMeta = (Dictionary<string, string>)functionMetaRaw;
+
+                                foreach (var requirement in requirements)
+                                {
+                                    if (requirement == "DEFINED")
+                                        continue;
+
+                                    if (functionMeta.ContainsKey(requirement))
+                                        continue;
+                                    else
+                                    {
+                                        valid = false;
+                                        break;
+                                    }
+                                }
+                            }
+                            else
+                                valid = false;
+                        }
+
+                        if(valid)
+                            tests.Add(new TestState(test));
                     }
                 }
 
@@ -303,6 +333,7 @@ namespace Grayjay.Engine
         {
             public string Name { get; set; }
             public string Description { get; set; }
+            public string[] Required { get; set; }
             public string Variable { get; set; }
             public bool Implicit { get; set; }
         }
@@ -344,19 +375,22 @@ namespace Grayjay.Engine
         }
 
 
-        [NoDefaultScriptAccess]
+        [DefaultScriptUsage(ScriptAccess.Full)]
         public class TestContext
         {
             private GrayjayPlugin _plugin;
 
+            [ScriptMember("isolated")]
             public bool Isolated { get; set; } = true;
 
-            [ScriptMember]
+            [ScriptMember("caller")]
             public string Caller { get; set; }
+            [ScriptMember("implicit")]
             public bool Implicit { get; set; }
 
-            [ScriptMember]
-            public Dictionary<string, object> Metadata { get; set; } = new Dictionary<string, object>();
+
+            [ScriptMember("metadata")]
+            public object Metadata { get; set; } = new object();
 
 
             public TaskCompletionSource<TestState> CompletionSource { get; set; }
@@ -371,7 +405,7 @@ namespace Grayjay.Engine
             }
 
 
-            [ScriptMember(ScriptMemberFlags.ExposeRuntimeType)]
+            [ScriptMember("runSourceMethod", ScriptMemberFlags.ExposeRuntimeType)]
             public object RunSourceMethod(string method, IJavaScriptObject paraObj)
             {
                 var paras = V8Converter.ConvertValue<object[]>(_plugin, paraObj);

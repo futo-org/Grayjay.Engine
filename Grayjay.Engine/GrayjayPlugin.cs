@@ -108,6 +108,7 @@ namespace Grayjay.Engine
         public class Options
         {
             public bool CaseInsensitive { get; set; } = false;
+            public bool IncludeStandardTests { get; set; } = false;
         }
 
         public GrayjayPlugin(PluginConfig config, string script, Dictionary<string, string?>? settings = null, string savedState = null, Options options = null)
@@ -201,6 +202,13 @@ namespace Grayjay.Engine
 
         public void Initialize()
         {
+            List<string> startupLogs = new List<string>();
+            var startupLogging = (PluginConfig config, string logs) =>
+            {
+                startupLogs.Add(logs);
+            };
+            OnLog += startupLogging;
+
             var flags = V8ScriptEngineFlags.AddPerformanceObject;
             if (_options.CaseInsensitive)
                 flags = flags | V8ScriptEngineFlags.UseCaseInsensitiveMemberBinding;
@@ -210,7 +218,6 @@ namespace Grayjay.Engine
             BeforeInitialize?.Invoke(this);
             _engine.Execute(Resources.ScriptPolyfil);
             _engine.Execute(Resources.ScriptSource);
-
 
             PackageBridge bridgePackage = new PackageBridge(this, (log) => OnLog?.Invoke(Config, log));
             bridgePackage.Initialize(_engine);
@@ -240,6 +247,8 @@ namespace Grayjay.Engine
             }
 
             _engine.Execute(_script);
+            if (_options.IncludeStandardTests)
+                _engine.Execute(Resources.ScriptTests);
             Capabilities = new PlatformClientCapabilities()
             {
                 HasChannelSearch = (bool)_engine.Evaluate("!!source.searchChannels"),
@@ -267,6 +276,8 @@ namespace Grayjay.Engine
 
             _engine.Execute("plugin.config = " + SerializeConfig());
             _engine.Execute("plugin.settings = parseSettings(" + SerializeSettings() + ")");
+
+            OnLog -= startupLogging;
 
             _activePlugins.AddOrUpdate(_engine, this, (key, obj) => this);
             IsInitialized = true;
@@ -1026,7 +1037,7 @@ namespace Grayjay.Engine
 
             return FromConfig(config);
         }
-        public static GrayjayPlugin FromConfig(PluginConfig config)
+        public static GrayjayPlugin FromConfig(PluginConfig config, Options options = null)
         {
             if (config.ScriptUrl == null)
                 throw new ArgumentException("No script url configured");
@@ -1039,7 +1050,7 @@ namespace Grayjay.Engine
             using (WebClient client = new WebClient())
                 script = client.DownloadString(scriptUrl);
 
-            return new GrayjayPlugin(config, script);
+            return new GrayjayPlugin(config, script, null, null, options);
         }
 
 

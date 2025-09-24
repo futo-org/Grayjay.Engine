@@ -37,7 +37,7 @@ namespace Grayjay.Engine.Models.Video.Additions
             if (_modifier == null)
                 return new Request(_plugin, url, headers);
 
-            var result = _modifier.InvokeV8("modifyRequest", url, headers.ToPropertyBag<string>(_plugin.GetUnderlyingEngine()));
+            var result = _modifier.InvokeV8("modifyRequest", url, headers.ToPropertyBag<string>());
 
             return V8Converter.ConvertValue<Request>(_plugin, result);
         }

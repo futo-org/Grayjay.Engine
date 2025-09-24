@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace Grayjay.Engine
@@ -37,6 +38,8 @@ namespace Grayjay.Engine
 
         public Dictionary<string, string> Constants { get; set; }
 
+        public Dictionary<string, object> Testing { get; set; } = new Dictionary<string, object>();
+
         public int SubscriptionRateLimit { get; set; }
         public bool EnableInSearch { get; set; }
         public bool EnableInHome { get; set; }
@@ -46,7 +49,6 @@ namespace Grayjay.Engine
         public string DeveloperSubmitUrl { get; set; } //Not implemented yet
         public bool AllowAllHttpHeaderAccess { get; set; }
         public int MaxDownloadParallelism { get; set; } //Not implemented yet
-
 
         public List<PluginSetting> Settings { get; set; } = new List<PluginSetting>();
 
@@ -74,6 +76,19 @@ namespace Grayjay.Engine
         public string AbsoluteIconUrl => (SourceUrl == null || IconUrl == null) ? null : new Uri(new Uri(SourceUrl), IconUrl).AbsoluteUri.ToString();
         public string AbsoluteScriptUrl => (SourceUrl == null || ScriptUrl == null) ? null : new Uri(new Uri(SourceUrl), ScriptUrl).AbsoluteUri.ToString();
 
+
+        public Dictionary<string, object> GetTestingMetadata()
+        {
+            Dictionary<string, object> data = new Dictionary<string, object>();
+            foreach(var kv in Testing ?? new Dictionary<string, object>())
+            {
+                if (kv.Value is JsonElement kvObj && kvObj.ValueKind == JsonValueKind.Object)
+                    data.Add(kv.Key, kvObj.ToDictionary());
+                else
+                    data.Add(kv.Key, new Dictionary<string, object>());
+            }
+            return data;
+        }
 
         private static JsonSerializerOptions _serializerOptions = new JsonSerializerOptions()
         {

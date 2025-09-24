@@ -13,6 +13,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Text.Json;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Grayjay.Engine
 {
@@ -217,11 +219,30 @@ namespace Grayjay.Engine
         }
 
 
-        public static object ToPropertyBag<A>(this Dictionary<string,A> obj, ScriptEngine engine)
+        public static object ToPropertyBag<A>(this Dictionary<string,A> obj)
         {
             var bag = new PropertyBag();
             foreach (var kv in obj)
-                bag.Add(kv.Key, kv.Value);
+            {
+                if (kv.Value?.GetType()?.IsAssignableTo(typeof(IDictionary)) ?? false)
+                    bag.Add(kv.Key, ((IDictionary)kv.Value).ToPropertyBag());
+                else
+                    bag.Add(kv.Key, kv.Value);
+            }
+            return bag;
+        }
+        public static object ToPropertyBag(this IDictionary obj)
+        {
+            var bag = new PropertyBag();
+            foreach (var k in obj.Keys)
+            {
+                var val = obj[k];
+                var valType = val?.GetType();
+                if (valType?.IsAssignableTo(typeof(IDictionary)) ?? false)
+                    bag.Add(k.ToString(), ((IDictionary)val).ToPropertyBag());
+                else
+                    bag.Add(k.ToString(), val);
+            }
             return bag;
         }
 
@@ -304,6 +325,40 @@ namespace Grayjay.Engine
             {
 
             }
+        }
+
+
+
+        public static object ToNativeValue(this JsonElement element)
+        {
+            switch(element.ValueKind)
+            {
+                case JsonValueKind.Null:
+                    return null;
+                case JsonValueKind.Object:
+                    return ToDictionary(element);
+                case JsonValueKind.Array:
+                    return element.EnumerateArray().Select(x => x.ToNativeValue()).ToArray();
+                case JsonValueKind.String:
+                    return element.GetString();
+                case JsonValueKind.True:
+                    return true;
+                case JsonValueKind.False:
+                    return false;
+                case JsonValueKind.Number:
+                    return element.GetDouble();
+                case JsonValueKind.Undefined:
+                    return null;
+                default:
+                    return null;
+            }
+        }
+        public static Dictionary<string, object> ToDictionary(this JsonElement element)
+        {
+            Dictionary<string, object> data = new Dictionary<string, object>();
+            foreach (var subKv in element.EnumerateObject())
+                data.Add(subKv.Name, subKv.Value.ToNativeValue());
+            return data;
         }
     }
 }
