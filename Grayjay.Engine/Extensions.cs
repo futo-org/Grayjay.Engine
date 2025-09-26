@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Text.Json;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+using Microsoft.VisualBasic;
 
 namespace Grayjay.Engine
 {
@@ -38,8 +39,26 @@ namespace Grayjay.Engine
                     ev.Set();
                 },
                 (object rejected) => {
-                    ex = new NotImplementedException("Promise was rejected: " + rejected.ToString());
-                    ev.Set();
+                    if (rejected is IJavaScriptObject rejectedJs)
+                    {
+                        if(rejectedJs.PropertyNames.Contains("plugin_type"))
+                        {
+                            string msg = (rejectedJs.PropertyNames.Contains("msg")) ? rejectedJs.GetProperty("plugin_type")?.ToString() : "";
+                            ex = new NotImplementedException("Promise was rejected: " + rejectedJs.GetProperty("plugin_type")?.ToString() + ":" + msg);
+                        }
+                        else if(rejectedJs.PropertyNames.Contains("msg"))
+                            ex = new NotImplementedException("Promise was rejected: " + rejectedJs.GetProperty("msg")?.ToString());
+                        else if(rejectedJs.PropertyNames.Contains("message"))
+                            ex = new NotImplementedException("Promise was rejected: " + rejectedJs.GetProperty("message")?.ToString());
+                        else
+                            ex = new NotImplementedException("Promise was rejected: " + rejected.ToString());
+                        ev.Set();
+                    }
+                    else
+                    {
+                        ex = new Exception("Promise was rejected: " + rejected.ToString());
+                        ev.Set();
+                    }
                 });
 
             ev.WaitOne();
@@ -72,7 +91,29 @@ namespace Grayjay.Engine
 
             obj.InvokeMethod("then",
                 (object obj) => source.SetResult((T)obj),
-                (object rejected) => { throw new NotImplementedException("Promise rejected not implemented"); });
+                (object rejected) => {
+                    Exception ex = null;
+                    if (rejected is IJavaScriptObject rejectedJs)
+                    {
+                        if (rejectedJs.PropertyNames.Contains("plugin_type"))
+                        {
+                            string msg = (rejectedJs.PropertyNames.Contains("msg")) ? rejectedJs.GetProperty("plugin_type")?.ToString() : "";
+                            ex = new NotImplementedException("Promise was rejected: " + rejectedJs.GetProperty("plugin_type")?.ToString() + ":" + msg);
+                        }
+                        else if (rejectedJs.PropertyNames.Contains("msg"))
+                            ex = new NotImplementedException("Promise was rejected: " + rejectedJs.GetProperty("msg")?.ToString());
+                        else if (rejectedJs.PropertyNames.Contains("message"))
+                            ex = new NotImplementedException("Promise was rejected: " + rejectedJs.GetProperty("message")?.ToString());
+                        else
+                            ex = new NotImplementedException("Promise was rejected: " + rejected.ToString());
+                    }
+                    else
+                    {
+                        ex = new Exception("Promise was rejected: " + rejected.ToString());
+                    }
+                    if (!source.Task.IsCompleted && !source.Task.IsFaulted)
+                        source.SetException(ex);
+                });
 
             var metadata = V8Converter.ConvertValue<V8PromiseMetadata>(GrayjayPlugin.GetEnginePlugin(obj.Engine), obj);
 
