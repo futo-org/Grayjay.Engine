@@ -16,6 +16,8 @@ namespace Grayjay.Engine.Packages
     [NoDefaultScriptAccess]
     public class PackageBridge: Package
     {
+        public static int AppVersion { get; set; } = 10;
+
         public override string VariableName => "bridge";
 
         private Action<string> _onLog;
@@ -23,7 +25,7 @@ namespace Grayjay.Engine.Packages
         private GrayjayPlugin _plugin;
 
         [ScriptMember("buildVersion")]
-        public int buildVersion => 282;
+        public int buildVersion => AppVersion;
         [ScriptMember("buildFlavor")]
         public string buildFlavor => "desktopStable";
         [ScriptMember("buildSpecVersion")]
