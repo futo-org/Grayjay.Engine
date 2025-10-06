@@ -39,7 +39,7 @@ public class VODEventPager : V8Pager<PlatformLiveEvent>
     {
         try
         {
-            var obj = _obj.InvokeV8("nextPage", ms);
+            var obj = _obj.InvokeV8(_plugin.Config, "nextPage", ms);
             if (obj is IJavaScriptObject)
                 _obj = (IJavaScriptObject)obj;
 

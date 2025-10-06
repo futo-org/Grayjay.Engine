@@ -74,7 +74,7 @@ namespace Grayjay.Engine.Models.Video.Sources
             if (_obj == null)
                 throw new InvalidOperationException("Source object already closed");
 
-            var result = _obj.InvokeV8("generate");
+            var result = _obj.InvokeV8(_plugin.Config, "generate");
             if (result is string str)
             {
                 InitStart = _obj.GetOrDefault<int>(_plugin, "initStart", nameof(DashManifestRawSource), InitStart);
@@ -97,7 +97,7 @@ namespace Grayjay.Engine.Models.Video.Sources
             if (_obj == null)
                 throw new InvalidOperationException("Source object already closed");
 
-            var task = _obj.InvokeV8Async("generate", out promiseMeta);
+            var task = _obj.InvokeV8Async(_plugin.Config, "generate", out promiseMeta);
             return task.ContinueWith((t) =>
             {
                 var result = task.Result;

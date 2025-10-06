@@ -826,7 +826,25 @@ namespace Grayjay.Engine
 
         private static Regex _regexScriptMessage = new Regex("Error:(.*?)\\n\\s*?at .*?\\[([0-9]*)\\]:([0-9]*):([0-9]*)");
         private static Regex _regexScriptStacktrace = new Regex("Error:(.*?)\\n\\s*?(at .*)");
-        private ScriptException GetExceptionFromV8(string pluginType, string msg, Exception innerEx = null, string stack = null, string code = null)
+
+        //TODO: move this to a different location
+        public static ScriptException GetExceptionFromV8(PluginConfig config, IJavaScriptObject obj)
+        {
+            if (obj.PropertyNames.Contains("plugin_type"))
+            {
+                string plugin_type = obj?.GetProperty("plugin_type")?.ToString() ?? "";
+                string msg = (obj.PropertyNames.Contains("msg")) ? obj.GetProperty("plugin_type")?.ToString() : "";
+                return GetExceptionFromV8(config, plugin_type, msg);
+            }
+            else if (obj.PropertyNames.Contains("msg"))
+                return new ScriptException(config, "P: " + obj.GetProperty("msg")?.ToString());
+            else if (obj.PropertyNames.Contains("message"))
+                return new ScriptException(config, "P: " + obj.GetProperty("message")?.ToString());
+            else
+                return new ScriptException(config, "P: " + obj.ToString());
+        }
+        private ScriptException GetExceptionFromV8(string pluginType, string msg, Exception innerEx = null, string stack = null, string code = null) => GetExceptionFromV8(Config, pluginType, msg, innerEx, stack, code);
+        private static ScriptException GetExceptionFromV8(PluginConfig config, string pluginType, string msg, Exception innerEx = null, string stack = null, string code = null)
         {
             Match m = _regexScriptMessage.Match(msg);
             int line = -1;
@@ -845,27 +863,27 @@ namespace Grayjay.Engine
             switch(pluginType)
             {
                 case "ScriptException":
-                    return new ScriptException(Config, msg, innerEx, stack, code);
+                    return new ScriptException(config, msg, innerEx, stack, code);
                 case "CriticalException":
-                    return new ScriptCriticalException(Config, msg, innerEx, stack, code);
+                    return new ScriptCriticalException(config, msg, innerEx, stack, code);
                 case "AgeException":
-                    return new ScriptException(Config, msg, innerEx, stack, code);
+                    return new ScriptException(config, msg, innerEx, stack, code);
                 case "UnavailableException":
-                    return new ScriptUnavailableException(Config, msg, innerEx, stack, code);
+                    return new ScriptUnavailableException(config, msg, innerEx, stack, code);
                 case "ScriptLoginRequiredException":
-                    return new ScriptLoginRequiredException(Config, msg, innerEx, stack, code);
+                    return new ScriptLoginRequiredException(config, msg, innerEx, stack, code);
                 case "ScriptExecutionException":
-                    return new ScriptException(Config, msg, innerEx, stack, code);
+                    return new ScriptException(config, msg, innerEx, stack, code);
                 case "ScriptCompilationException":
-                    return new ScriptException(Config, msg, innerEx, stack, code);
+                    return new ScriptException(config, msg, innerEx, stack, code);
                 case "ScriptImplementationException":
-                    return new ScriptException(Config, msg, innerEx, stack, code);
+                    return new ScriptException(config, msg, innerEx, stack, code);
                 case "ScriptTimeoutException":
-                    return new ScriptException(Config, msg, innerEx, stack, code);
+                    return new ScriptException(config, msg, innerEx, stack, code);
                 case "NoInternetException":
-                    return new ScriptException(Config, msg, innerEx, stack, code);
+                    return new ScriptException(config, msg, innerEx, stack, code);
                 default:
-                    return new ScriptException(Config, msg, innerEx, stack, code);
+                    return new ScriptException(config, msg, innerEx, stack, code);
 
             }
         }
@@ -899,7 +917,7 @@ namespace Grayjay.Engine
             }, script);
             if(obj.Kind == JavaScriptObjectKind.Promise)
             {
-                return obj.ToV8ValueObjectAsync<IJavaScriptObject>();
+                return obj.ToV8ValueObjectAsync<IJavaScriptObject>(Config);
             }
             return Task.FromResult(obj);
         }
@@ -915,7 +933,7 @@ namespace Grayjay.Engine
 
                 if(obj.Kind == JavaScriptObjectKind.Promise)
                 {
-                    return obj.ToV8ValueObjectBlocking<IJavaScriptObject>();
+                    return obj.ToV8ValueObjectBlocking<IJavaScriptObject>(Config);
                 }
 
                 return obj;

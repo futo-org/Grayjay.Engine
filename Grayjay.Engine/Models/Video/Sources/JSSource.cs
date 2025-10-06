@@ -56,7 +56,7 @@ namespace Grayjay.Engine.Models.Video.Sources
             if (!HasRequestModifier || _obj == null)
                 return null;
 
-            var result = _obj.InvokeV8("getRequestModifier");
+            var result = _obj.InvokeV8(_plugin.Config, "getRequestModifier");
             if (result is IJavaScriptObject)
                 return V8Converter.ConvertValue<RequestModifier>(_plugin, result);
             else
@@ -68,7 +68,7 @@ namespace Grayjay.Engine.Models.Video.Sources
             if (!HasRequestExecutor || _obj == null)
                 return null;
 
-            var result = _obj.InvokeV8("getRequestExecutor");
+            var result = _obj.InvokeV8(_plugin.Config, "getRequestExecutor");
             if (result is IJavaScriptObject)
                 return V8Converter.ConvertValue<RequestExecutor>(_plugin, result);
             else

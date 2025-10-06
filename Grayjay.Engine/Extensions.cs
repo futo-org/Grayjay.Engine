@@ -21,8 +21,8 @@ namespace Grayjay.Engine
 {
     public static class Extensions
     {
-        public static T ToV8ValueObjectBlocking<T>(this IJavaScriptObject obj) => (T)obj.ToV8ValueObjectBlocking();
-        public static object ToV8ValueObjectBlocking(this IJavaScriptObject obj)
+        public static T ToV8ValueObjectBlocking<T>(this IJavaScriptObject obj, PluginConfig config) => (T)obj.ToV8ValueObjectBlocking(config);
+        public static object ToV8ValueObjectBlocking(this IJavaScriptObject obj, PluginConfig config)
         {
             if (obj.Kind != JavaScriptObjectKind.Promise)
                 throw new InvalidOperationException("Object is not a promise");
@@ -41,17 +41,7 @@ namespace Grayjay.Engine
                 (object rejected) => {
                     if (rejected is IJavaScriptObject rejectedJs)
                     {
-                        if(rejectedJs.PropertyNames.Contains("plugin_type"))
-                        {
-                            string msg = (rejectedJs.PropertyNames.Contains("msg")) ? rejectedJs.GetProperty("plugin_type")?.ToString() : "";
-                            ex = new NotImplementedException("Promise was rejected: " + rejectedJs.GetProperty("plugin_type")?.ToString() + ":" + msg);
-                        }
-                        else if(rejectedJs.PropertyNames.Contains("msg"))
-                            ex = new NotImplementedException("Promise was rejected: " + rejectedJs.GetProperty("msg")?.ToString());
-                        else if(rejectedJs.PropertyNames.Contains("message"))
-                            ex = new NotImplementedException("Promise was rejected: " + rejectedJs.GetProperty("message")?.ToString());
-                        else
-                            ex = new NotImplementedException("Promise was rejected: " + rejected.ToString());
+                        ex = GrayjayPlugin.GetExceptionFromV8(config, rejectedJs);
                         ev.Set();
                     }
                     else
@@ -69,20 +59,7 @@ namespace Grayjay.Engine
             return result;
         }
 
-        public static Task<T> ToV8ValueObjectAsync<T>(this IJavaScriptObject obj)
-        {
-            if (obj.Kind != JavaScriptObjectKind.Promise)
-                throw new InvalidOperationException("Object is not a promise");
-
-            TaskCompletionSource<T> source = new TaskCompletionSource<T>();
-
-            obj.InvokeMethod("then",
-                (object obj) => source.SetResult((T)obj),
-                (object rejected) => { throw new NotImplementedException("Promise rejected not implemented"); });
-
-            return source.Task;
-        }
-        public static Task<T> ToV8ValueObjectAsync<T>(this IJavaScriptObject obj, out V8PromiseMetadata promiseMeta)
+        public static Task<T> ToV8ValueObjectAsync<T>(this IJavaScriptObject obj, PluginConfig config)
         {
             if (obj.Kind != JavaScriptObjectKind.Promise)
                 throw new InvalidOperationException("Object is not a promise");
@@ -93,24 +70,35 @@ namespace Grayjay.Engine
                 (object obj) => source.SetResult((T)obj),
                 (object rejected) => {
                     Exception ex = null;
+
                     if (rejected is IJavaScriptObject rejectedJs)
-                    {
-                        if (rejectedJs.PropertyNames.Contains("plugin_type"))
-                        {
-                            string msg = (rejectedJs.PropertyNames.Contains("msg")) ? rejectedJs.GetProperty("plugin_type")?.ToString() : "";
-                            ex = new NotImplementedException("Promise was rejected: " + rejectedJs.GetProperty("plugin_type")?.ToString() + ":" + msg);
-                        }
-                        else if (rejectedJs.PropertyNames.Contains("msg"))
-                            ex = new NotImplementedException("Promise was rejected: " + rejectedJs.GetProperty("msg")?.ToString());
-                        else if (rejectedJs.PropertyNames.Contains("message"))
-                            ex = new NotImplementedException("Promise was rejected: " + rejectedJs.GetProperty("message")?.ToString());
-                        else
-                            ex = new NotImplementedException("Promise was rejected: " + rejected.ToString());
-                    }
+                        ex = GrayjayPlugin.GetExceptionFromV8(config, rejectedJs);
                     else
-                    {
                         ex = new Exception("Promise was rejected: " + rejected.ToString());
-                    }
+
+                    if (!source.Task.IsCompleted && !source.Task.IsFaulted)
+                        source.SetException(ex);
+                });
+
+            return source.Task;
+        }
+        public static Task<T> ToV8ValueObjectAsync<T>(this IJavaScriptObject obj, PluginConfig config, out V8PromiseMetadata promiseMeta)
+        {
+            if (obj.Kind != JavaScriptObjectKind.Promise)
+                throw new InvalidOperationException("Object is not a promise");
+
+            TaskCompletionSource<T> source = new TaskCompletionSource<T>();
+
+            obj.InvokeMethod("then",
+                (object obj) => source.SetResult((T)obj),
+                (object rejected) => {
+                    Exception ex = null;
+
+                    if (rejected is IJavaScriptObject rejectedJs)
+                        ex = GrayjayPlugin.GetExceptionFromV8(config, rejectedJs);
+                    else
+                        ex = new Exception("Promise was rejected: " + rejected.ToString());
+
                     if (!source.Task.IsCompleted && !source.Task.IsFaulted)
                         source.SetException(ex);
                 });
@@ -121,62 +109,62 @@ namespace Grayjay.Engine
             return source.Task;
         }
 
-        public static object InvokeV8(this IJavaScriptObject obj, string method, params object[] args)
+        public static object InvokeV8(this IJavaScriptObject obj, PluginConfig config, string method, params object[] args)
         {
             var plugin = GrayjayPlugin.GetEnginePlugin(obj.Engine);
             var result = (plugin != null) ? plugin.InterceptExceptions(() => obj.InvokeMethod(method, args)) :
                 obj.InvokeMethod(method, args);
 
             if (result is IJavaScriptObject jresult && jresult.Kind == JavaScriptObjectKind.Promise)
-                return jresult.ToV8ValueObjectBlocking();
+                return jresult.ToV8ValueObjectBlocking(config);
             return result;
         }
-        public static T InvokeV8<T>(this IJavaScriptObject obj, string method, params object[] args)
+        public static T InvokeV8<T>(this IJavaScriptObject obj, PluginConfig config, string method, params object[] args)
         {
             var plugin = GrayjayPlugin.GetEnginePlugin(obj.Engine);
             var result = (plugin != null) ? plugin.InterceptExceptions(() => obj.InvokeMethod(method, args)) :
                 obj.InvokeMethod(method, args);
             if (result is IJavaScriptObject jresult && jresult.Kind == JavaScriptObjectKind.Promise)
-                return (T)jresult.ToV8ValueObjectBlocking();
+                return (T)jresult.ToV8ValueObjectBlocking(config);
             return (T)result;
         }
-        public static Task<object> InvokeV8Async(this IJavaScriptObject obj, string method, params object[] args)
+        public static Task<object> InvokeV8Async(this IJavaScriptObject obj, PluginConfig config, string method, params object[] args)
         {
             var plugin = GrayjayPlugin.GetEnginePlugin(obj.Engine);
             var result = (plugin != null) ? plugin.InterceptExceptions(() => obj.InvokeMethod(method, args)) :
                 obj.InvokeMethod(method, args);
 
             if (result is IJavaScriptObject jresult && jresult.Kind == JavaScriptObjectKind.Promise)
-                return jresult.ToV8ValueObjectAsync<object>();
+                return jresult.ToV8ValueObjectAsync<object>(config);
             return Task.FromResult(result);
         }
-        public static Task<T> InvokeV8Async<T>(this IJavaScriptObject obj, string method, params object[] args)
+        public static Task<T> InvokeV8Async<T>(this IJavaScriptObject obj, PluginConfig config, string method, params object[] args)
         {
             var plugin = GrayjayPlugin.GetEnginePlugin(obj.Engine);
             var result = (plugin != null) ? plugin.InterceptExceptions(() => obj.InvokeMethod(method, args)) :
                 obj.InvokeMethod(method, args);
             if (result is IJavaScriptObject jresult && jresult.Kind == JavaScriptObjectKind.Promise)
-                return jresult.ToV8ValueObjectAsync<T>();
+                return jresult.ToV8ValueObjectAsync<T>(config);
             return Task.FromResult((T)result);
         }
-        public static Task<object> InvokeV8Async(this IJavaScriptObject obj, string method, out V8PromiseMetadata? promiseMeta, params object[] args)
+        public static Task<object> InvokeV8Async(this IJavaScriptObject obj, PluginConfig config, string method, out V8PromiseMetadata? promiseMeta, params object[] args)
         {
             var plugin = GrayjayPlugin.GetEnginePlugin(obj.Engine);
             var result = (plugin != null) ? plugin.InterceptExceptions(() => obj.InvokeMethod(method, args)) :
                 obj.InvokeMethod(method, args);
 
             if (result is IJavaScriptObject jresult && jresult.Kind == JavaScriptObjectKind.Promise)
-                return jresult.ToV8ValueObjectAsync<object>(out promiseMeta);
+                return jresult.ToV8ValueObjectAsync<object>(config, out promiseMeta);
             promiseMeta = null;
             return Task.FromResult(result);
         }
-        public static Task<T> InvokeV8Async<T>(this IJavaScriptObject obj, string method, out V8PromiseMetadata? promiseMeta, params object[] args)
+        public static Task<T> InvokeV8Async<T>(this IJavaScriptObject obj, PluginConfig config, string method, out V8PromiseMetadata? promiseMeta, params object[] args)
         {
             var plugin = GrayjayPlugin.GetEnginePlugin(obj.Engine);
             var result = (plugin != null) ? plugin.InterceptExceptions(() => obj.InvokeMethod(method, args)) :
                 obj.InvokeMethod(method, args);
             if (result is IJavaScriptObject jresult && jresult.Kind == JavaScriptObjectKind.Promise)
-                return jresult.ToV8ValueObjectAsync<T>(out promiseMeta);
+                return jresult.ToV8ValueObjectAsync<T>(config, out promiseMeta);
             promiseMeta = null;
             return Task.FromResult((T)result);
         }

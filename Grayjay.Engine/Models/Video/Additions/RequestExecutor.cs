@@ -11,6 +11,7 @@ namespace Grayjay.Engine.Models.Video.Additions
 {
     public class RequestExecutor
     {
+        private PluginConfig _config;
         private IJavaScriptObject _executor;
 
         [V8Property("urlPrefix", true)]
@@ -23,6 +24,7 @@ namespace Grayjay.Engine.Models.Video.Additions
         public RequestExecutor(GrayjayPlugin plugin, IJavaScriptObject obj)
         {
             _executor = obj;
+            _config = plugin.Config;
 
             if (!obj.HasFunction("executeRequest"))
                 throw new ScriptImplementationException(plugin.Config, "RequestExecutor is missing executeRequest");
@@ -40,7 +42,7 @@ namespace Grayjay.Engine.Models.Video.Additions
             try
             {
 
-                var result = _executor.InvokeV8("executeRequest", url, headers);
+                var result = _executor.InvokeV8(_config, "executeRequest", url, headers);
 
                 if (result is string str)
                 {
@@ -78,7 +80,7 @@ namespace Grayjay.Engine.Models.Video.Additions
 
             try
             {
-                _executor.InvokeV8("cleanup");
+                _executor.InvokeV8(_config, "cleanup");
             }
             catch(InvalidOperationException ex)
             {

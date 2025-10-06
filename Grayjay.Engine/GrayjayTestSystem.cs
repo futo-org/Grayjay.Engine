@@ -172,7 +172,7 @@ namespace Grayjay.Engine
                 {
                     test.Status = StatusType.Running;
                     watch.Start();
-                    result = nativeRef.InvokeV8(test.Test.Variable, context);
+                    result = nativeRef.InvokeV8(plugin.Config, test.Test.Variable, context);
                     watch.Stop();
                 }
                 else
@@ -180,7 +180,7 @@ namespace Grayjay.Engine
                     test.Status = StatusType.Running;
                     var subObject = nativeRef.GetOrThrow<IJavaScriptObject>(plugin, test.Test.Variable, "TestSystem", false);
                     watch.Start();
-                    result = subObject.InvokeV8("test", context);
+                    result = subObject.InvokeV8(plugin.Config, "test", context);
                     watch.Stop();
                 }
                 if (result is IJavaScriptObject)

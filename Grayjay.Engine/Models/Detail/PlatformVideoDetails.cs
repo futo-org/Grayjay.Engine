@@ -20,6 +20,7 @@ namespace Grayjay.Engine.Models.Detail
     {
         private bool _hasGetContentRecommendations = false;
         private bool _hasGetVODEvents = false;
+        private PluginConfig _config = null;
 
 
 
@@ -43,10 +44,11 @@ namespace Grayjay.Engine.Models.Detail
         public bool IsVOD => HasVODEvents();
 
         public PlatformVideoDetails() : base(null) { }
-        public PlatformVideoDetails(IJavaScriptObject obj) : base(obj)
+        public PlatformVideoDetails(GrayjayPlugin plugin, IJavaScriptObject obj) : base(obj)
         {
             _hasGetContentRecommendations = obj.HasFunction("getContentRecommendations");
             _hasGetVODEvents = obj.HasFunction("getVODEvents");
+            _config = plugin.Config;
         }
 
 
@@ -56,7 +58,7 @@ namespace Grayjay.Engine.Models.Detail
             if (!_hasGetContentRecommendations || underlying == null) //TODO: Check if object available
                 return null;
 
-            var contentPagerObj = (IJavaScriptObject)underlying.InvokeV8("getContentRecommendations");
+            var contentPagerObj = (IJavaScriptObject)underlying.InvokeV8(_config, "getContentRecommendations");
             var plugin = GrayjayPlugin.GetEnginePlugin(underlying.Engine);
             return new V8Pager<PlatformContent>(plugin, contentPagerObj);
         }
@@ -69,7 +71,7 @@ namespace Grayjay.Engine.Models.Detail
                 return null;
 
             var plugin = GrayjayPlugin.GetEnginePlugin(underlying.Engine);
-            return new VODEventPager(plugin, underlying.InvokeV8<IJavaScriptObject>("getVODEvents"));
+            return new VODEventPager(plugin, underlying.InvokeV8<IJavaScriptObject>(_config, "getVODEvents"));
 
         }
     }

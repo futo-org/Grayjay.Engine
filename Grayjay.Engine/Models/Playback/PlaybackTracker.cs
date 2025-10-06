@@ -47,7 +47,7 @@ namespace Grayjay.Engine.Models.Playback
                 if (_hasCalledInit)
                     return;
                 if(_hasOnInit)
-                    _obj.InvokeV8("onInit", new object[] { seconds });
+                    _obj.InvokeV8(_plugin.Config, "onInit", new object[] { seconds });
                 _nextRequest = Math.Max(100, _obj.GetOrThrow<int>(_plugin, "nextRequest", "PlaybackTracker", false));
                 _lastRequest = DateTime.Now;
                 _hasCalledInit = true;
@@ -62,7 +62,7 @@ namespace Grayjay.Engine.Models.Playback
                     OnInit(seconds);
                 else
                 {
-                    _obj.InvokeV8("onProgress", Math.Floor(seconds), isPlaying);
+                    _obj.InvokeV8(_plugin.Config, "onProgress", Math.Floor(seconds), isPlaying);
                     _nextRequest = Math.Max(100, _obj.GetOrThrow<int>(_plugin, "nextRequest", "PlaybackTracker", false));
                     _lastRequest = DateTime.Now;
                 }
@@ -75,7 +75,7 @@ namespace Grayjay.Engine.Models.Playback
             {
                 lock(_obj)
                 {
-                    _obj.InvokeV8("onConcluded", new object[] { -1 });
+                    _obj.InvokeV8(_plugin.Config, "onConcluded", new object[] { -1 });
                 }
             }
         }

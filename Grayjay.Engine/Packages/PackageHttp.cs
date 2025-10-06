@@ -565,23 +565,23 @@ namespace Grayjay.Engine.Packages
                     handlers.OnOpen += () =>
                     {
                         _isOpen = true;
-                        socketObj.InvokeV8("open");
+                        socketObj.InvokeV8(_package._plugin.Config, "open");
                     };
                 if (hasMessage)
-                    handlers.OnMessage += (msg) => socketObj.InvokeV8("message", msg);
+                    handlers.OnMessage += (msg) => socketObj.InvokeV8(_package._plugin.Config, "message", msg);
                 if (hasClosing)
-                    handlers.OnClosing += () => socketObj.InvokeV8("closing");
+                    handlers.OnClosing += () => socketObj.InvokeV8(_package._plugin.Config, "closing");
                 if (hasClosed)
                     handlers.OnClosed += () =>
                     {
                         _isOpen = false;
-                        socketObj.InvokeV8("closed");
+                        socketObj.InvokeV8(_package._plugin.Config, "closed");
                     };
                 if (hasFailure)
                     handlers.OnFailure += (ex) =>
                     {
                         _isOpen = false;
-                        socketObj.InvokeV8("failure", ex.Message);
+                        socketObj.InvokeV8(_package._plugin.Config, "failure", ex.Message);
                     };
                 _socket = client.Socket(_url, _headers.ToDictionary<string>(), handlers);
             }

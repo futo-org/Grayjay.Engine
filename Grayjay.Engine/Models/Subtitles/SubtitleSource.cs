@@ -12,6 +12,7 @@ namespace Grayjay.Engine.Models.Subtitles
 {
     public class SubtitleSource : ISubtitleSource
     {
+        private PluginConfig _config;
         private IJavaScriptObject _obj = null;
         private FileInfo _fileSubtitle = null;
 
@@ -25,9 +26,10 @@ namespace Grayjay.Engine.Models.Subtitles
         public bool HasFetch { get; set; }
 
         public SubtitleSource() { }
-        public SubtitleSource(IJavaScriptObject obj)
+        public SubtitleSource(GrayjayPlugin plugin, IJavaScriptObject obj)
         {
             _obj = obj;
+            _config = plugin.Config;
             if (obj == null)
                 HasFetch = false;
             else
@@ -38,7 +40,7 @@ namespace Grayjay.Engine.Models.Subtitles
         {
             if (!HasFetch)
                 throw new InvalidOperationException("This subtitle doesn't support getSubtitles");
-            return (string)_obj.InvokeV8("getSubtitles");
+            return (string)_obj.InvokeV8(_config, "getSubtitles");
         }
 
         public Uri? GetSubtitlesUri()
@@ -89,12 +91,12 @@ namespace Grayjay.Engine.Models.Subtitles
 
         public class Serializable: SubtitleSource
         {
-            public Serializable() : base(null)
+            public Serializable() : base(null, null)
             {
 
             }
 
-            public Serializable(ISubtitleSource source) : base(null)
+            public Serializable(ISubtitleSource source) : base(null, null)
             {
                 Name = source.Name;
                 Url = source.Url;
@@ -116,7 +118,7 @@ namespace Grayjay.Engine.Models.Subtitles
         [JsonPropertyName("_subtitles")]
         public string _Subtitles { get; set; }
 
-        public SubtitleRawSource() : base(null)
+        public SubtitleRawSource() : base(null, null)
         {
 
         }

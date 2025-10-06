@@ -53,7 +53,7 @@ namespace Grayjay.Engine.Models.Comments
             if (!_hasGetReplies)
                 return null;
 
-            var obj = _object.InvokeV8("getReplies");
+            var obj = _object.InvokeV8(_plugin.Config, "getReplies");
             if (!(obj is IJavaScriptObject))
                 throw new InvalidCastException($"Found {obj?.GetType()?.Name}, expected IJavaScriptObject");
             return new V8Pager<PlatformComment>(_plugin, (IJavaScriptObject)obj);
