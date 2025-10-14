@@ -35,6 +35,8 @@ namespace Grayjay.Engine
 
         public PluginCaptchaConfig Captcha { get; set; }
         public PluginAuthConfig Authentication { get; set; }
+        public PluginAuthDesktopConfig AuthenticationDesktop { get; set; }
+        public PluginAuthConfig GetPlatformAuthentication() => AuthenticationDesktop ?? Authentication;
 
         public Dictionary<string, string> Constants { get; set; }
 
@@ -215,6 +217,8 @@ namespace Grayjay.Engine
     }
     public class PluginAuthConfig
     {
+        public virtual bool IsDesktopConfig => false;
+
         public string LoginUrl { get; set; }
         public string CompletionUrl { get; set; }
         public List<string> AllowedDomains { get; set; }
@@ -224,5 +228,10 @@ namespace Grayjay.Engine
         public string UserAgent { get; set; }
         public string LoginButton { get; set; }
         public Dictionary<string, List<string>> DomainHeadersToFind { get; set; }
+    }
+    public class PluginAuthDesktopConfig : PluginAuthConfig
+    {
+        public override bool IsDesktopConfig => true;
+        public bool UseMobileEmulation { get; set; }
     }
 }
