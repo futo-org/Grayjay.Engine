@@ -150,7 +150,10 @@ namespace Grayjay.Engine.Packages
         [ScriptMember("querySelector")]
         public DOMNode QuerySelector(string query)
         {
-            return new DOMNode(_package, _node.QuerySelector(query));
+            var result = _node.QuerySelector(query);
+            if (result == null)
+                return null;
+            return new DOMNode(_package, result);
         }
         [ScriptMember("querySelectorAll")]
         public object QuerySelectorAll(string query)
