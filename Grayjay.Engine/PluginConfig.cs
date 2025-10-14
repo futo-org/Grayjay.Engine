@@ -195,6 +195,7 @@ namespace Grayjay.Engine
 
     public class PluginSetting
     {
+        public virtual bool IsDesktopConfig => false;
         public string Name { get; set; }
         public string Description { get; set; }
         public string Type { get; set; }
@@ -209,11 +210,18 @@ namespace Grayjay.Engine
     }
     public class PluginCaptchaConfig
     {
+        public virtual bool IsDesktopConfig => false;
+
         public string CaptchaUrl { get; set; }
         public string CompletionUrl { get; set; }
         public List<string> CookiesToFind { get; set; }
         public string UserAgent { get; set; }
         public bool CookiesExclOthers { get; set; }
+    }
+    public class PluginCaptchaDesktopConfig : PluginCaptchaConfig
+    {
+        public override bool IsDesktopConfig => true;
+        public bool UseMobileEmulation { get; set; }
     }
     public class PluginAuthConfig
     {
