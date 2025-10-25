@@ -444,6 +444,7 @@ class DashSource {
         this.name = obj.name ?? "Dash";
         this.duration = obj.duration ?? 0;
         this.url = obj.url;
+        this.priority = obj.priority ?? false;
         if(obj.language)
             this.language = obj.language;
         if(obj.requestModifier)
