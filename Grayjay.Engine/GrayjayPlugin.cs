@@ -833,7 +833,7 @@ namespace Grayjay.Engine
             if (obj.PropertyNames.Contains("plugin_type"))
             {
                 string plugin_type = obj?.GetProperty("plugin_type")?.ToString() ?? "";
-                string msg = (obj.PropertyNames.Contains("msg")) ? obj.GetProperty("plugin_type")?.ToString() : "";
+                string msg = (obj.PropertyNames.Contains("msg")) ? obj.GetProperty("msg")?.ToString() : "";
                 return GetExceptionFromV8(config, plugin_type, msg);
             }
             else if (obj.PropertyNames.Contains("msg"))
