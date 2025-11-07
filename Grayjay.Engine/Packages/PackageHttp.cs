@@ -271,7 +271,7 @@ namespace Grayjay.Engine.Packages
                 return this;
             }
             [ScriptMember("requestWithBody")]
-            public HttpBatchBuilder RequestWithBody(string method, string url, string body, ScriptObject headers = null, bool useAuth = false)
+            public HttpBatchBuilder RequestWithBody(string method, string url, object body, ScriptObject headers = null, bool useAuth = false)
             {
                 _descriptors.Add(new RequestDescriptor()
                 {

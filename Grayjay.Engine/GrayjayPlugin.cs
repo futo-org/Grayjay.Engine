@@ -334,6 +334,8 @@ namespace Grayjay.Engine
             {
                 case "Http":
                     return new PackageHttp(this);
+                case "HttpImp":
+                    return new PackageHttpImp(this);
                 case "Utilities":
                     return new PackageUtilities(this);
                 case "DOMParser":
@@ -1179,7 +1181,7 @@ namespace Grayjay.Engine
         }
     }
 
-    public class PluginHttpClient: ManagedHttpClient
+    public class PluginHttpClient : ManagedHttpClient
     {
         private GrayjayPlugin _plugin;
         private ManagedHttpClient _client = new ManagedHttpClient();
