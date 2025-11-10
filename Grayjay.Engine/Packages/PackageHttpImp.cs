@@ -394,14 +394,7 @@ namespace Grayjay.Engine.Packages
 
         internal static class Libcurl
         {
-            private const string Lib =
-#if WINDOWS
-                "libcurl";
-#elif LINUX
-                "libcurl-impersonate";
-#else   // macOS
-                "libcurl-impersonate";
-#endif
+            private const string Lib = "curlshim";
 
             public sealed class Request
             {
@@ -425,14 +418,19 @@ namespace Grayjay.Engine.Packages
                 public Dictionary<string, List<string>> Headers = new(StringComparer.OrdinalIgnoreCase);
             }
 
-            private enum CURLcode : int { CURLE_OK = 0 }
+            private enum CURLcode : int
+            {
+                CURLE_OK = 0,
+                CURLE_UNKNOWN_OPTION = 48
+            }
+
             internal static class CurlInfoConsts
             {
                 public const int CURLINFO_STRING = 0x100000;
                 public const int CURLINFO_LONG = 0x200000;
                 public const int CURLINFO_DOUBLE = 0x300000;
                 public const int CURLINFO_SLIST = 0x400000;
-                public const int CURLINFO_PTR = 0x400000; // same as SLIST
+                public const int CURLINFO_PTR = 0x400000;
                 public const int CURLINFO_SOCKET = 0x500000;
                 public const int CURLINFO_OFF_T = 0x600000;
                 public const int CURLINFO_MASK = 0x0fffff;
@@ -441,10 +439,7 @@ namespace Grayjay.Engine.Packages
 
             internal enum CURLINFO : int
             {
-                // CURLINFO_NONE (never use)
                 CURLINFO_NONE = 0,
-
-                // String infos
                 EFFECTIVE_URL = CurlInfoConsts.CURLINFO_STRING + 1,
                 CONTENT_TYPE = CurlInfoConsts.CURLINFO_STRING + 18,
                 PRIVATE = CurlInfoConsts.CURLINFO_STRING + 21,
@@ -459,7 +454,6 @@ namespace Grayjay.Engine.Packages
                 CAINFO = CurlInfoConsts.CURLINFO_STRING + 61,
                 CAPATH = CurlInfoConsts.CURLINFO_STRING + 62,
 
-                // Long infos
                 RESPONSE_CODE = CurlInfoConsts.CURLINFO_LONG + 2,
                 HEADER_SIZE = CurlInfoConsts.CURLINFO_LONG + 11,
                 REQUEST_SIZE = CurlInfoConsts.CURLINFO_LONG + 12,
@@ -471,48 +465,24 @@ namespace Grayjay.Engine.Packages
                 PROXYAUTH_AVAIL = CurlInfoConsts.CURLINFO_LONG + 24,
                 OS_ERRNO = CurlInfoConsts.CURLINFO_LONG + 25,
                 NUM_CONNECTS = CurlInfoConsts.CURLINFO_LONG + 26,
-                // LASTSOCKET deprecated in favor of ACTIVESOCKET; keep for completeness
-                LASTSOCKET = CurlInfoConsts.CURLINFO_LONG + 29,
-                RTSP_CLIENT_CSEQ = CurlInfoConsts.CURLINFO_LONG + 37,
-                RTSP_SERVER_CSEQ = CurlInfoConsts.CURLINFO_LONG + 38,
-                RTSP_CSEQ_RECV = CurlInfoConsts.CURLINFO_LONG + 39,
+                LASTSOCKET = CurlInfoConsts.CURLINFO_LONG + 29, // deprecated
                 PRIMARY_PORT = CurlInfoConsts.CURLINFO_LONG + 40,
                 LOCAL_PORT = CurlInfoConsts.CURLINFO_LONG + 42,
                 HTTP_VERSION = CurlInfoConsts.CURLINFO_LONG + 46,
-                PROXY_SSL_VERIFYRESULT = CurlInfoConsts.CURLINFO_LONG + 47,
-                // PROTOCOL deprecated; use SCHEME instead
-                PROTOCOL = CurlInfoConsts.CURLINFO_LONG + 48,
-                CONDITION_UNMET = CurlInfoConsts.CURLINFO_LONG + 35,
-                PROXY_ERROR = CurlInfoConsts.CURLINFO_LONG + 59,
-                USED_PROXY = CurlInfoConsts.CURLINFO_LONG + 66,
-                HTTPAUTH_USED = CurlInfoConsts.CURLINFO_LONG + 69,
-                PROXYAUTH_USED = CurlInfoConsts.CURLINFO_LONG + 70,
 
-                // Double infos (deprecated in favor of *_T OFF_T variants where noted)
                 TOTAL_TIME = CurlInfoConsts.CURLINFO_DOUBLE + 3,
                 NAMELOOKUP_TIME = CurlInfoConsts.CURLINFO_DOUBLE + 4,
                 CONNECT_TIME = CurlInfoConsts.CURLINFO_DOUBLE + 5,
                 PRETRANSFER_TIME = CurlInfoConsts.CURLINFO_DOUBLE + 6,
-                SIZE_UPLOAD = CurlInfoConsts.CURLINFO_DOUBLE + 7,  // deprecated
-                SIZE_DOWNLOAD = CurlInfoConsts.CURLINFO_DOUBLE + 8,  // deprecated
-                SPEED_DOWNLOAD = CurlInfoConsts.CURLINFO_DOUBLE + 9,  // deprecated
-                SPEED_UPLOAD = CurlInfoConsts.CURLINFO_DOUBLE + 10, // deprecated
                 STARTTRANSFER_TIME = CurlInfoConsts.CURLINFO_DOUBLE + 17,
                 REDIRECT_TIME = CurlInfoConsts.CURLINFO_DOUBLE + 19,
                 APPCONNECT_TIME = CurlInfoConsts.CURLINFO_DOUBLE + 33,
-                CONTENT_LENGTH_DOWNLOAD = CurlInfoConsts.CURLINFO_DOUBLE + 15, // deprecated
-                CONTENT_LENGTH_UPLOAD = CurlInfoConsts.CURLINFO_DOUBLE + 16, // deprecated
 
-                // slist / ptr infos
                 SSL_ENGINES = CurlInfoConsts.CURLINFO_SLIST + 27,
                 COOKIELIST = CurlInfoConsts.CURLINFO_SLIST + 28,
-                TLS_SESSION = CurlInfoConsts.CURLINFO_PTR + 43, // deprecated; use TLS_SSL_PTR
-                TLS_SSL_PTR = CurlInfoConsts.CURLINFO_PTR + 45,
 
-                // Socket info
                 ACTIVESOCKET = CurlInfoConsts.CURLINFO_SOCKET + 44,
 
-                // OFF_T (64-bit) infos
                 SIZE_UPLOAD_T = CurlInfoConsts.CURLINFO_OFF_T + 7,
                 SIZE_DOWNLOAD_T = CurlInfoConsts.CURLINFO_OFF_T + 8,
                 SPEED_DOWNLOAD_T = CurlInfoConsts.CURLINFO_OFF_T + 9,
@@ -527,60 +497,126 @@ namespace Grayjay.Engine.Packages
                 STARTTRANSFER_TIME_T = CurlInfoConsts.CURLINFO_OFF_T + 54,
                 REDIRECT_TIME_T = CurlInfoConsts.CURLINFO_OFF_T + 55,
                 APPCONNECT_TIME_T = CurlInfoConsts.CURLINFO_OFF_T + 56,
-                RETRY_AFTER = CurlInfoConsts.CURLINFO_OFF_T + 57,
-                XFER_ID = CurlInfoConsts.CURLINFO_OFF_T + 63,
-                CONN_ID = CurlInfoConsts.CURLINFO_OFF_T + 64,
-                QUEUE_TIME_T = CurlInfoConsts.CURLINFO_OFF_T + 65,
-                POSTTRANSFER_TIME_T = CurlInfoConsts.CURLINFO_OFF_T + 67,
-                EARLYDATA_SENT_T = CurlInfoConsts.CURLINFO_OFF_T + 68,
 
                 LASTONE = 70
             }
+
             private enum CURLOPT : int
             {
-                URL = 10002, FOLLOWLOCATION = 52, MAXREDIRS = 68,
-                CONNECTTIMEOUT_MS = 156, TIMEOUT_MS = 155,
-                HTTP_VERSION = 84, USERAGENT = 10018,
-                ACCEPT_ENCODING = 10102, REFERER = 10016,
-                HTTPHEADER = 10023, COOKIEFILE = 10031, COOKIEJAR = 10082,
-                CUSTOMREQUEST = 10036, POSTFIELDS = 10015, POSTFIELDSIZE = 60,
-                WRITEFUNCTION = 20011, HEADERFUNCTION = 20079
+                URL = 10002,
+                FOLLOWLOCATION = 52,
+                MAXREDIRS = 68,
+                CONNECTTIMEOUT_MS = 156,
+                TIMEOUT_MS = 155,
+                HTTP_VERSION = 84,
+                USERAGENT = 10018,
+                ACCEPT_ENCODING = 10102,
+                REFERER = 10016,
+                HTTPHEADER = 10023,
+                COOKIEFILE = 10031,
+                COOKIEJAR = 10082,
+                CUSTOMREQUEST = 10036,
+                POSTFIELDS = 10015,
+                POSTFIELDSIZE = 60,
+                WRITEFUNCTION = 20011,
+                HEADERFUNCTION = 20079,
+                WRITEDATA = 10001,
+                HEADERDATA = 10029
             }
+
             private enum CURL_HTTP_VERSION : int { TWO_TLS = 4 }
 
             [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
             private delegate UIntPtr WriteCb(IntPtr ptr, UIntPtr size, UIntPtr nmemb, IntPtr userdata);
 
-            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] private static extern CURLcode curl_global_init(long flags);
-            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] private static extern void curl_global_cleanup();
+            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+            private static extern CURLcode ce_global_init(long flags);
 
-            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] private static extern IntPtr curl_easy_init();
-            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] private static extern void curl_easy_cleanup(IntPtr easy);
-            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] private static extern CURLcode curl_easy_perform(IntPtr easy);
+            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+            private static extern void ce_global_cleanup();
 
-            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_setopt")]
-            private static extern CURLcode curl_easy_setopt_long(IntPtr easy, CURLOPT opt, long val);
+            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+            private static extern IntPtr ce_easy_init();
 
-            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_setopt")]
-            private static extern CURLcode curl_easy_setopt_str(IntPtr easy, CURLOPT opt, string str);
+            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+            private static extern void ce_easy_cleanup(IntPtr easy);
 
-            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_setopt")]
-            private static extern CURLcode curl_easy_setopt_ptr(IntPtr easy, CURLOPT opt, IntPtr ptr);
+            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+            private static extern CURLcode ce_easy_perform(IntPtr easy);
 
-            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, EntryPoint = "curl_easy_setopt")]
-            private static extern CURLcode curl_easy_setopt_write(IntPtr easy, CURLOPT opt, WriteCb cb);
+            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi, ExactSpelling = true)]
+            private static extern CURLcode ce_easy_impersonate(IntPtr easy, string target, int default_headers);
 
-            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] private static extern CURLcode curl_easy_getinfo(IntPtr e, CURLINFO i, out long l);
-            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] private static extern CURLcode curl_easy_getinfo(IntPtr e, CURLINFO i, out IntPtr p);
+            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+            private static extern CURLcode ce_easy_getinfo_long(IntPtr e, CURLINFO i, out long l);
 
-            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] private static extern IntPtr curl_slist_append(IntPtr slist, string header);
-            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)] private static extern void curl_slist_free_all(IntPtr slist);
+            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+            private static extern CURLcode ce_easy_getinfo_ptr(IntPtr e, CURLINFO i, out IntPtr p);
 
-            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-            private static extern CURLcode curl_easy_impersonate(IntPtr easy, string target, int default_headers);
+            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi, ExactSpelling = true)]
+            private static extern IntPtr ce_easy_strerror(CURLcode code);
+
+            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi, ExactSpelling = true)]
+            private static extern IntPtr ce_slist_append(IntPtr slist, string header);
+
+            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+            private static extern void ce_slist_free_all(IntPtr slist);
+
+            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+            private static extern CURLcode ce_setopt_long(IntPtr easy, CURLOPT opt, long val);
+
+            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi, ExactSpelling = true)]
+            private static extern CURLcode ce_setopt_str(IntPtr easy, CURLOPT opt, string str);
+
+            [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+            private static extern CURLcode ce_setopt_ptr(IntPtr easy, CURLOPT opt, IntPtr ptr);
 
             private static bool _globalInitDone;
             private static readonly object _initLock = new();
+
+            private static readonly WriteCb s_bodyCb = BodyThunk;
+            private static readonly WriteCb s_headerCb = HeaderThunk;
+
+            private sealed class CallbackState
+            {
+                public readonly MemoryStream Body = new(64 * 1024);
+                public readonly List<string> Headers = new();
+                public byte[] Scratch = Array.Empty<byte>();
+            }
+
+            private static UIntPtr BodyThunk(IntPtr p, UIntPtr size, UIntPtr nmemb, IntPtr userdata)
+            {
+                ulong sz = size.ToUInt64() * nmemb.ToUInt64();
+                if (sz == 0) return (UIntPtr)0;
+
+                var state = (CallbackState)GCHandle.FromIntPtr(userdata).Target!;
+                int len = checked((int)sz);
+
+                if (state.Scratch.Length < len) state.Scratch = new byte[len];
+                Marshal.Copy(p, state.Scratch, 0, len);
+                state.Body.Write(state.Scratch, 0, len);
+
+                return (UIntPtr)sz;
+            }
+
+            private static UIntPtr HeaderThunk(IntPtr p, UIntPtr size, UIntPtr nmemb, IntPtr userdata)
+            {
+                ulong sz = size.ToUInt64() * nmemb.ToUInt64();
+                if (sz == 0) return (UIntPtr)0;
+
+                var state = (CallbackState)GCHandle.FromIntPtr(userdata).Target!;
+                int len = checked((int)sz);
+
+                if (state.Scratch.Length < len) state.Scratch = new byte[len];
+                Marshal.Copy(p, state.Scratch, 0, len);
+
+                // Header lines may contain binary; we’ll trim CRLF only
+                var line = Encoding.ASCII.GetString(state.Scratch, 0, len).TrimEnd('\r', '\n');
+                if (!string.IsNullOrWhiteSpace(line))
+                    state.Headers.Add(line);
+
+                return (UIntPtr)sz;
+            }
 
             public static Response Perform(Request req)
             {
@@ -589,94 +625,85 @@ namespace Grayjay.Engine.Packages
                 IntPtr easy = IntPtr.Zero;
                 IntPtr hdrs = IntPtr.Zero;
                 IntPtr bodyPtr = IntPtr.Zero;
-                var body = new MemoryStream();
-                var headers = new List<string>();
 
-                UIntPtr WriteBody(IntPtr p, UIntPtr size, UIntPtr nmemb, IntPtr ud)
-                {
-                    int len = checked((int)(size.ToUInt64() * nmemb.ToUInt64()));
-                    if (len == 0) return UIntPtr.Zero;
-                    var buf = new byte[len];
-                    Marshal.Copy(p, buf, 0, len);
-                    body.Write(buf, 0, len);
-                    return (UIntPtr)(ulong)len;
-                }
-
-                UIntPtr WriteHeader(IntPtr p, UIntPtr size, UIntPtr nmemb, IntPtr ud)
-                {
-                    int len = checked((int)(size.ToUInt64() * nmemb.ToUInt64()));
-                    if (len == 0) return UIntPtr.Zero;
-                    var buf = new byte[len];
-                    Marshal.Copy(p, buf, 0, len);
-                    var line = Encoding.ASCII.GetString(buf).TrimEnd('\r', '\n');
-                    if (!string.IsNullOrWhiteSpace(line))
-                        headers.Add(line);
-                    return (UIntPtr)(ulong)len;
-                }
+                var state = new CallbackState();
+                var gch = GCHandle.Alloc(state, GCHandleType.Normal);
 
                 try
                 {
-                    easy = curl_easy_init();
+                    easy = ce_easy_init();
                     if (easy == IntPtr.Zero) throw new InvalidOperationException("curl_easy_init failed");
 
-                    Check(curl_easy_impersonate(easy, req.ImpersonateTarget, req.UseBuiltInHeaders ? 1 : 0));
-                    Check(curl_easy_setopt_str(easy, CURLOPT.URL, req.Url));
-                    Check(curl_easy_setopt_long(easy, CURLOPT.FOLLOWLOCATION, 1));
-                    Check(curl_easy_setopt_long(easy, CURLOPT.MAXREDIRS, 10));
-                    Check(curl_easy_setopt_long(easy, CURLOPT.CONNECTTIMEOUT_MS, req.TimeoutMs));
-                    Check(curl_easy_setopt_long(easy, CURLOPT.TIMEOUT_MS, req.TimeoutMs));
-                    Check(curl_easy_setopt_long(easy, CURLOPT.HTTP_VERSION, (long)CURL_HTTP_VERSION.TWO_TLS));
-                    Check(curl_easy_setopt_str(easy, CURLOPT.ACCEPT_ENCODING, ""));
+                    var imp = ce_easy_impersonate(easy, req.ImpersonateTarget, req.UseBuiltInHeaders ? 1 : 0);
+                    if (imp != CURLcode.CURLE_OK && imp != CURLcode.CURLE_UNKNOWN_OPTION)
+                        throw new InvalidOperationException($"curl_easy_impersonate failed: {GetErr(imp)}");
+
+                    Check(ce_setopt_str(easy, CURLOPT.URL, req.Url));
+                    Check(ce_setopt_long(easy, CURLOPT.FOLLOWLOCATION, 1));
+                    Check(ce_setopt_long(easy, CURLOPT.MAXREDIRS, 10));
+                    Check(ce_setopt_long(easy, CURLOPT.CONNECTTIMEOUT_MS, req.TimeoutMs));
+                    Check(ce_setopt_long(easy, CURLOPT.TIMEOUT_MS, req.TimeoutMs));
+                    Check(ce_setopt_long(easy, CURLOPT.HTTP_VERSION, (long)CURL_HTTP_VERSION.TWO_TLS));
+                    Check(ce_setopt_str(easy, CURLOPT.ACCEPT_ENCODING, string.Empty));
 
                     foreach (var kv in req.Headers)
-                        hdrs = curl_slist_append(hdrs, $"{kv.Key}: {kv.Value}");
-                    if (hdrs != IntPtr.Zero) Check(curl_easy_setopt_ptr(easy, CURLOPT.HTTPHEADER, hdrs));
+                        hdrs = ce_slist_append(hdrs, $"{kv.Key}: {kv.Value}");
+                    if (hdrs != IntPtr.Zero)
+                        Check(ce_setopt_ptr(easy, CURLOPT.HTTPHEADER, hdrs));
 
                     if (req.SendCookies || req.PersistCookies)
                     {
                         var jar = string.IsNullOrEmpty(req.CookieJarPath)
-                                  ? Path.Combine(Path.GetTempPath(), "imphttp.cookies.txt")
-                                  : req.CookieJarPath;
+                            ? Path.Combine(Path.GetTempPath(), "imphttp.cookies.txt")
+                            : req.CookieJarPath;
 
-                        if (req.SendCookies) Check(curl_easy_setopt_str(easy, CURLOPT.COOKIEFILE, jar));
-                        if (req.PersistCookies) Check(curl_easy_setopt_str(easy, CURLOPT.COOKIEJAR, jar));
+                        if (req.SendCookies)    Check(ce_setopt_str(easy, CURLOPT.COOKIEFILE, jar));
+                        if (req.PersistCookies) Check(ce_setopt_str(easy, CURLOPT.COOKIEJAR,  jar));
                     }
 
                     if (!string.Equals(req.Method, "GET", StringComparison.OrdinalIgnoreCase))
                     {
-                        Check(curl_easy_setopt_str(easy, CURLOPT.CUSTOMREQUEST, req.Method));
+                        Check(ce_setopt_str(easy, CURLOPT.CUSTOMREQUEST, req.Method));
                         if (req.Body is { Length: > 0 })
                         {
                             bodyPtr = Marshal.AllocHGlobal(req.Body.Length);
                             Marshal.Copy(req.Body, 0, bodyPtr, req.Body.Length);
-                            Check(curl_easy_setopt_ptr(easy, CURLOPT.POSTFIELDS, bodyPtr));
-                            Check(curl_easy_setopt_long(easy, CURLOPT.POSTFIELDSIZE, req.Body.Length));
+                            Check(ce_setopt_ptr(easy, CURLOPT.POSTFIELDS, bodyPtr));
+                            Check(ce_setopt_long(easy, CURLOPT.POSTFIELDSIZE, req.Body.Length));
                         }
                     }
 
-                    Check(curl_easy_setopt_write(easy, CURLOPT.WRITEFUNCTION, WriteBody));
-                    Check(curl_easy_setopt_write(easy, CURLOPT.HEADERFUNCTION, WriteHeader));
+                    IntPtr bodyFn = Marshal.GetFunctionPointerForDelegate(s_bodyCb);
+                    IntPtr hdrFn  = Marshal.GetFunctionPointerForDelegate(s_headerCb);
+                    Check(ce_setopt_ptr(easy, CURLOPT.WRITEFUNCTION, bodyFn));
+                    Check(ce_setopt_ptr(easy, CURLOPT.HEADERFUNCTION, hdrFn));
 
-                    var rc = curl_easy_perform(easy);
-                    if (rc != CURLcode.CURLE_OK) throw new InvalidOperationException($"curl_easy_perform failed: {rc}");
+                    IntPtr user = GCHandle.ToIntPtr(gch);
+                    Check(ce_setopt_ptr(easy, CURLOPT.WRITEDATA, user));
+                    Check(ce_setopt_ptr(easy, CURLOPT.HEADERDATA, user));
 
-                    Check(curl_easy_getinfo(easy, CURLINFO.RESPONSE_CODE, out long code));
-                    Check(curl_easy_getinfo(easy, CURLINFO.EFFECTIVE_URL, out IntPtr urlPtr));
+                    var rc = ce_easy_perform(easy);
+                    if (rc != CURLcode.CURLE_OK)
+                        throw new InvalidOperationException($"curl_easy_perform failed: {GetErr(rc)}");
+
+                    Check(ce_easy_getinfo_long(easy, CURLINFO.RESPONSE_CODE, out long code));
+                    Check(ce_easy_getinfo_ptr(easy, CURLINFO.EFFECTIVE_URL, out IntPtr urlPtr));
                     var effective = urlPtr != IntPtr.Zero ? Marshal.PtrToStringAnsi(urlPtr) : req.Url;
 
                     return new Response
                     {
                         Status = (int)code,
                         EffectiveUrl = effective,
-                        BodyBytes = body.ToArray(),
-                        Headers = ParseHeaders(headers)
+                        BodyBytes = state.Body.ToArray(),
+                        Headers = ParseHeaders(state.Headers)
                     };
                 }
                 finally
                 {
                     if (bodyPtr != IntPtr.Zero) Marshal.FreeHGlobal(bodyPtr);
-                    if (hdrs != IntPtr.Zero) curl_slist_free_all(hdrs);
-                    if (easy != IntPtr.Zero) curl_easy_cleanup(easy);
+                    if (easy != IntPtr.Zero) ce_easy_cleanup(easy);
+                    if (hdrs != IntPtr.Zero) ce_slist_free_all(hdrs);
+                    if (gch.IsAllocated) gch.Free();
                 }
             }
 
@@ -686,16 +713,22 @@ namespace Grayjay.Engine.Packages
                 lock (_initLock)
                 {
                     if (_globalInitDone) return;
-                    var rc = curl_global_init(3 /* CURL_GLOBAL_ALL */);
-                    if (rc != CURLcode.CURLE_OK) throw new InvalidOperationException($"curl_global_init failed: {rc}");
+                    var rc = ce_global_init(3 /* CURL_GLOBAL_ALL */);
+                    if (rc != CURLcode.CURLE_OK) throw new InvalidOperationException($"curl_global_init failed: {GetErr(rc)}");
                     _globalInitDone = true;
-                    AppDomain.CurrentDomain.ProcessExit += (_, __) => curl_global_cleanup();
+                    AppDomain.CurrentDomain.ProcessExit += (_, __) => ce_global_cleanup();
                 }
+            }
+
+            private static string GetErr(CURLcode c)
+            {
+                var p = ce_easy_strerror(c);
+                return p != IntPtr.Zero ? Marshal.PtrToStringAnsi(p) ?? c.ToString() : c.ToString();
             }
 
             private static void Check(CURLcode c)
             {
-                if (c != CURLcode.CURLE_OK) throw new InvalidOperationException($"libcurl error: {c}");
+                if (c != CURLcode.CURLE_OK) throw new InvalidOperationException($"libcurl error: {GetErr(c)}");
             }
 
             private static Dictionary<string, List<string>> ParseHeaders(List<string> lines)
@@ -705,8 +738,8 @@ namespace Grayjay.Engine.Packages
                 {
                     var idx = line.IndexOf(':');
                     if (idx <= 0) continue;
-                    var name = line.Substring(0, idx).Trim();
-                    var val  = line.Substring(idx + 1).Trim();
+                    var name = line[..idx].Trim();
+                    var val  = line[(idx + 1)..].Trim();
                     if (!dict.TryGetValue(name, out var list))
                     {
                         list = new List<string>();
