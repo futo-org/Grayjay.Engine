@@ -151,7 +151,7 @@ namespace Grayjay.Engine.Models.Video.Additions
     {
         [V8Property("applyAuthClient")]
         public string ApplyAuthClient { get; set; }
-        [V8Property("applyOtherHeaders")]
+        [V8Property("applyCookieClient")]
         public string ApplyCookieClient { get; set; }
         [V8Property("applyOtherHeaders")]
         public bool ApplyOtherHeaders { get; set; }
