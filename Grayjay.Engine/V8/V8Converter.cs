@@ -169,7 +169,7 @@ namespace Grayjay.Engine.V8
         {
             if (t.IsPrimitive || t == typeof(string))
             {
-                if (obj != null)
+                if (obj != null && obj is not Undefined)
                 {
                     try
                     {
