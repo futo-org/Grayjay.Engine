@@ -59,27 +59,52 @@ namespace Grayjay.Engine.Packages
         public PackageHttpImpClient GetDefaultClient(bool withAuth) => withAuth ? _clientAuth : _client;
 
         [ScriptMember("request")]
-        public object Request(string method, string url, ScriptObject headers = null, bool useAuth = false,
-                              bool useByteResponses = false, string impersonateTarget = null, bool? useBuiltInHeaders = null)
+        public object Request(
+            string method,
+            string url,
+            ScriptObject headers = null,
+            bool useAuth = false,
+            bool useByteResponses = false,
+            ScriptObject options = null)
         {
-            return (useAuth ? _clientAuth : _client).Request(method, url, headers, useByteResponses, impersonateTarget, useBuiltInHeaders);
+            return (useAuth ? _clientAuth : _client).Request(method, url, headers, useByteResponses, options);
         }
 
         [ScriptMember("requestWithBody")]
-        public object RequestWithBody(string method, string url, object body, ScriptObject headers = null, bool useAuth = false,
-                                      bool useByteResponses = false, string impersonateTarget = null, bool? useBuiltInHeaders = null)
+        public object RequestWithBody(
+            string method,
+            string url,
+            object body,
+            ScriptObject headers = null,
+            bool useAuth = false,
+            bool useByteResponses = false,
+            ScriptObject options = null)
         {
-            return (useAuth ? _clientAuth : _client).RequestWithBody(method, url, body, headers, useByteResponses, impersonateTarget, useBuiltInHeaders);
+            return (useAuth ? _clientAuth : _client).RequestWithBody(method, url, body, headers, useByteResponses, options);
         }
 
         [ScriptMember]
-        public object GET(string url, ScriptObject headers = null, bool auth = false, bool useByteResponses = false,
-                          string impersonateTarget = null, bool? useBuiltInHeaders = null)
-            => Request("GET", url, headers, auth, useByteResponses, impersonateTarget, useBuiltInHeaders);
+        public object GET(
+            string url,
+            ScriptObject headers,
+            bool auth = false,
+            bool useByteResponses = false,
+            ScriptObject options = null)
+        {
+            return Request("GET", url, headers, auth, useByteResponses, options);
+        }
 
         [ScriptMember]
-        public object POST(string url, object body, ScriptObject headers = null, bool auth = false, bool useByteResponses = false, string impersonateTarget = null, bool? useBuiltInHeaders = null)
-            => RequestWithBody("POST", url, body, headers, auth, useByteResponses, impersonateTarget, useBuiltInHeaders);
+        public object POST(
+            string url,
+            object body,
+            ScriptObject headers,
+            bool auth = false,
+            bool useByteResponses = false,
+            ScriptObject options = null)
+        {
+            return RequestWithBody("POST", url, body, headers, auth, useByteResponses, options);
+        }
 
         internal ImpResponse Perform(RequestDescriptor d, PackageHttpImpClient client = null)
         {
@@ -199,12 +224,12 @@ namespace Grayjay.Engine.Packages
                 BodyBytes = abuf;
             }
         }
-
+        
         [NoDefaultScriptAccess]
         public class HttpBatchBuilder
         {
-            private PackageHttpImp _package;
-            private List<RequestDescriptor> _descriptors = new List<RequestDescriptor>();
+            private readonly PackageHttpImp _package;
+            private readonly List<RequestDescriptor> _descriptors = new List<RequestDescriptor>();
 
             public HttpBatchBuilder(PackageHttpImp package)
             {
@@ -212,47 +237,88 @@ namespace Grayjay.Engine.Packages
             }
 
             [ScriptMember("request")]
-            public HttpBatchBuilder Request(string method, string url, ScriptObject headers = null, bool useAuth = false, bool useByteResponses = false)
+            public HttpBatchBuilder Request(
+                string method,
+                string url,
+                ScriptObject headers = null,
+                bool useAuth = false,
+                ScriptObject options = null)
             {
-                _descriptors.Add(new RequestDescriptor()
+                var d = new RequestDescriptor
                 {
                     Method = method,
                     Url = url,
                     Headers = headers?.ToDictionary<string>(),
                     UseAuth = useAuth,
-                    ReturnType = useByteResponses ? ReturnType.Bytes : ReturnType.String
-                });
+                    ReturnType = ReturnType.String
+                };
+
+                if (options != null && options.PropertyNames.Contains("useByteResponses"))
+                {
+                    if (options["useByteResponses"] is bool b && b)
+                        d.ReturnType = ReturnType.Bytes;
+                }
+
+                ApplyOptionsToDescriptor(d, options);
+                _descriptors.Add(d);
                 return this;
             }
+
             [ScriptMember("requestWithBody")]
-            public HttpBatchBuilder RequestWithBody(string method, string url, object body, ScriptObject headers = null, bool useAuth = false, bool useByteResponses = false)
+            public HttpBatchBuilder RequestWithBody(
+                string method,
+                string url,
+                object body,
+                ScriptObject headers = null,
+                bool useAuth = false,
+                ScriptObject options = null)
             {
-                _descriptors.Add(new RequestDescriptor()
+                var d = new RequestDescriptor
                 {
                     Method = method,
                     Url = url,
                     Headers = headers?.ToDictionary<string>(),
                     Body = body,
                     UseAuth = useAuth,
-                    ReturnType = useByteResponses ? ReturnType.Bytes : ReturnType.String
-                });
+                    ReturnType = ReturnType.String
+                };
+
+                if (options != null && options.PropertyNames.Contains("useByteResponses"))
+                {
+                    if (options["useByteResponses"] is bool b && b)
+                        d.ReturnType = ReturnType.Bytes;
+                }
+
+                ApplyOptionsToDescriptor(d, options);
+                _descriptors.Add(d);
                 return this;
             }
 
             [ScriptMember]
-            public HttpBatchBuilder GET(string url, ScriptObject headers = null, bool useAuth = false, bool useByteResponses = false)
+            public HttpBatchBuilder GET(
+                string url,
+                ScriptObject headers = null,
+                bool useAuth = false,
+                ScriptObject options = null)
             {
-                return Request("GET", url, headers, useAuth, useByteResponses);
+                return Request("GET", url, headers, useAuth, options);
             }
+
             [ScriptMember]
-            public HttpBatchBuilder POST(string url, string body, ScriptObject headers = null, bool useAuth = false, bool useByteResponses = false)
+            public HttpBatchBuilder POST(
+                string url,
+                string body,
+                ScriptObject headers = null,
+                bool useAuth = false,
+                ScriptObject options = null)
             {
-                return RequestWithBody("POST", url, body, headers, useAuth, useByteResponses);
+                return RequestWithBody("POST", url, body, headers, useAuth, options);
             }
+
             [ScriptMember]
             public HttpBatchBuilder DUMMY()
             {
-                _descriptors.Add(new RequestDescriptor()
+                _descriptors.Add(new RequestDescriptor
                 {
                     Method = "DUMMY"
                 });
@@ -337,52 +403,76 @@ namespace Grayjay.Engine.Packages
             [ScriptMember("setDoAllowNewCookies")]
             public void SetDoAllowNewCookies(bool allow) => DoAllowNewCookies = allow;
 
-            //TODO: Move string impersonateTarget to options field, same as headers
             [ScriptMember("request")]
-            public object Request(string method, string url, ScriptObject headers = null, bool useByteResponses = false,
-                                  string impersonateTarget = null, bool? useBuiltInHeaders = null)
+            public object Request(
+                string method,
+                string url,
+                ScriptObject headers = null,
+                bool useByteResponses = false,
+                ScriptObject options = null)
             {
                 var map = headers?.ToDictionary<string>() ?? new Dictionary<string, string>();
                 ApplyDefaults(map);
-                return _owner.Perform(new RequestDescriptor
+
+                var descriptor = new RequestDescriptor
                 {
                     Method = method,
                     Url = url,
                     Headers = map,
-                    ReturnType = useByteResponses ? ReturnType.Bytes : ReturnType.String,
-                    ImpersonateTarget = impersonateTarget,
-                    UseBuiltInHeaders = useBuiltInHeaders
-                }, this);
+                    ReturnType = useByteResponses ? ReturnType.Bytes : ReturnType.String
+                };
+
+                ApplyOptionsToDescriptor(descriptor, options);
+                return _owner.Perform(descriptor, this);
             }
 
             [ScriptMember("requestWithBody")]
-            public object RequestWithBody(string method, string url, object body, ScriptObject headers = null, bool useByteResponses = false,
-                                          string impersonateTarget = null, bool? useBuiltInHeaders = null)
+            public object RequestWithBody(
+                string method,
+                string url,
+                object body,
+                ScriptObject headers = null,
+                bool useByteResponses = false,
+                ScriptObject options = null)
             {
                 var map = headers?.ToDictionary<string>() ?? new Dictionary<string, string>();
                 ApplyDefaults(map);
 
-                return _owner.Perform(new RequestDescriptor
+                var descriptor = new RequestDescriptor
                 {
                     Method = method,
                     Url = url,
                     Headers = map,
                     Body = body,
-                    ReturnType = useByteResponses ? ReturnType.Bytes : ReturnType.String,
-                    ImpersonateTarget = impersonateTarget,
-                    UseBuiltInHeaders = useBuiltInHeaders
-                }, this);
+                    ReturnType = useByteResponses ? ReturnType.Bytes : ReturnType.String
+                };
+
+                ApplyOptionsToDescriptor(descriptor, options);
+                return _owner.Perform(descriptor, this);
             }
 
             [ScriptMember]
-            public object GET(string url, ScriptObject headers = null, bool auth = false, bool useByteResponses = false,
-                              string impersonateTarget = null, bool? useBuiltInHeaders = null)
-                => Request("GET", url, headers, useByteResponses, impersonateTarget, useBuiltInHeaders);
+            public object GET(
+                string url,
+                ScriptObject headers,
+                bool auth = false,
+                bool useByteResponses = false,
+                ScriptObject options = null)
+            {
+                return Request("GET", url, headers, useByteResponses, options);
+            }
 
             [ScriptMember]
-            public object POST(string url, object body, ScriptObject headers = null, bool auth = false, bool useByteResponses = false,
-                               string impersonateTarget = null, bool? useBuiltInHeaders = null)
-                => RequestWithBody("POST", url, body, headers, useByteResponses, impersonateTarget, useBuiltInHeaders);
+            public object POST(
+                string url,
+                object body,
+                ScriptObject headers,
+                bool auth = false,
+                bool useByteResponses = false,
+                ScriptObject options = null)
+            {
+                return RequestWithBody("POST", url, body, headers, useByteResponses, options);
+            }
 
             private void ApplyDefaults(Dictionary<string, string> map)
             {
@@ -748,6 +838,43 @@ namespace Grayjay.Engine.Packages
                     list.Add(val);
                 }
                 return dict;
+            }
+        }
+
+
+        internal static void ApplyOptionsToDescriptor(RequestDescriptor d, ScriptObject? options)
+        {
+            if (options == null)
+                return;
+
+            var names = options.PropertyNames;
+            if (names.Contains("impersonateTarget"))
+            {
+                if (options["impersonateTarget"] is string s && !string.IsNullOrWhiteSpace(s))
+                    d.ImpersonateTarget = s;
+            }
+
+            if (names.Contains("useBuiltInHeaders"))
+            {
+                if (options["useBuiltInHeaders"] is bool b)
+                    d.UseBuiltInHeaders = b;
+            }
+
+            if (names.Contains("timeoutMs"))
+            {
+                var v = options["timeoutMs"];
+                switch (v)
+                {
+                    case int i when i > 0:
+                        d.TimeoutMs = i;
+                        break;
+                    case long l when l > 0 && l <= int.MaxValue:
+                        d.TimeoutMs = (int)l;
+                        break;
+                    case double dbl when dbl > 0 && dbl <= int.MaxValue:
+                        d.TimeoutMs = (int)dbl;
+                        break;
+                }
             }
         }
     }
