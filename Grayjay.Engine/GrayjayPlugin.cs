@@ -1352,7 +1352,78 @@ namespace Grayjay.Engine
                 }
             }
         }
-        
+        public void ProcessRequest(string method, int responseCode, Uri url, Dictionary<string, List<string>> headers)
+        {
+            if (DoUpdateCookies)
+            {
+                var domain = url.Host.ToLower();
+                var domainParts = domain.Split(".");
+                var defaultCookieDomain = "." + string.Join(".", domainParts.Skip(domainParts.Length - 2));
+                foreach (var header in headers)
+                {
+                    if (header.Key.ToLower() == "set-cookie")
+                    {
+                        if (header.Key.ToLower() == "set-cookie")
+                        {
+                            var domainToUse = domain;
+                            var str = header.Value.FirstOrDefault();
+                            if (string.IsNullOrEmpty(str))
+                                continue;
+                            (var cookieKey, var cookieValue) = CookieStringToPair(str);
+                            if (!string.IsNullOrEmpty(cookieKey) && !string.IsNullOrEmpty(cookieValue))
+                            {
+                                var cookieParts = cookieValue.Split(";");
+                                if (cookieParts.Length == 0)
+                                    continue;
+                                cookieValue = cookieParts[0].Trim();
+                                var cookieVariables = cookieParts.Skip(1).Select((it) =>
+                                {
+                                    var splitIndex = it.IndexOf("=");
+                                    if (splitIndex < 0)
+                                        return (it.Trim().ToLower(), "");
+                                    return (it.Substring(0, splitIndex).ToLower().Trim(), it.Substring(splitIndex + 1).Trim());
+                                }).ToDictionary(x => x.Item1, y => y.Item2);
+                                domainToUse = (cookieVariables.ContainsKey("domain")) ? cookieVariables["domain"].ToLower() : defaultCookieDomain;
+                                if (!domainToUse.StartsWith("."))
+                                    domainToUse = "." + domainToUse;
+                            }
+
+                            if ((_auth != null || _currentCookieMap.Count != 0))
+                            {
+                                Dictionary<string, string> cookieMap;
+                                if (_currentCookieMap.ContainsKey(domainToUse))
+                                    cookieMap = _currentCookieMap[domainToUse];
+                                else
+                                {
+                                    var newMap = new Dictionary<string, string>();
+                                    _currentCookieMap[domainToUse] = newMap;
+                                    cookieMap = newMap;
+                                }
+                                if (cookieMap.ContainsKey(cookieKey) || DoAllowNewCookies)
+                                    cookieMap[cookieKey] = cookieValue;
+                            }
+                            else
+                            {
+                                Dictionary<string, string> cookieMap;
+                                if (_currentCookieMap.ContainsKey(domainToUse))
+                                    cookieMap = _otherCookieMap[domainToUse];
+                                else
+                                {
+                                    var newMap = new Dictionary<string, string>();
+                                    _otherCookieMap[domainToUse] = newMap;
+                                    cookieMap = newMap;
+                                }
+                                if (cookieMap.ContainsKey(cookieKey) || DoAllowNewCookies)
+                                {
+                                    cookieMap[cookieKey] = cookieValue;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
 
         public override void AfterRequest(HttpResponseMessage response)
         {
