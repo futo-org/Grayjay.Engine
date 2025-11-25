@@ -1,13 +1,14 @@
 ﻿using Grayjay.Engine.V8;
+using Microsoft.ClearScript.JavaScript;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace Grayjay.Engine.Models.Video.Sources
 {
-    public class HLSManifestSource: IVideoSource
+    public class HLSManifestSource: JSSource, IVideoSource
     {
-        public string Type => "HLSSource";
+        public override string Type => "HLSSource";
 
         [V8Property("width", true)]
         public int Width { get; set; }
@@ -24,5 +25,8 @@ namespace Grayjay.Engine.Models.Video.Sources
         [V8Property("priority", true)]
         public bool Priority { get; set; }
 
+
+        public HLSManifestSource() { }
+        public HLSManifestSource(GrayjayPlugin plugin, IJavaScriptObject obj) : base(plugin, obj) { }
     }
 }

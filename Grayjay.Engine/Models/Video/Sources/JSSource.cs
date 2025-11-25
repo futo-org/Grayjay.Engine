@@ -42,7 +42,7 @@ namespace Grayjay.Engine.Models.Video.Sources
             HasRequestExecutor = obj.HasFunction("getRequestExecutor");
         }
 
-        public IRequestModifier GetRequestModifier()
+        public virtual IRequestModifier GetRequestModifier()
         {
             if (_obj == null)
                 return null;

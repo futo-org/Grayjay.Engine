@@ -1,13 +1,14 @@
 ﻿using Grayjay.Engine.V8;
+using Microsoft.ClearScript.JavaScript;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace Grayjay.Engine.Models.Video.Sources
 {
-    public class HLSManifestAudioSource: IAudioSource
+    public class HLSManifestAudioSource: JSSource, IAudioSource
     {
-        public string Type => "HLSSource";
+        public override string Type => "HLSSource";
 
         public string Container { get; } = "application/vnd.apple.mpegurl";
         public string Codec { get; } = "HLS";
@@ -26,5 +27,8 @@ namespace Grayjay.Engine.Models.Video.Sources
         [V8Property("original", true)]
         public bool Original { get; set; }
 
+
+        public HLSManifestAudioSource() { }
+        public HLSManifestAudioSource(GrayjayPlugin plugin, IJavaScriptObject obj) : base(plugin, obj) { }
     }
 }
