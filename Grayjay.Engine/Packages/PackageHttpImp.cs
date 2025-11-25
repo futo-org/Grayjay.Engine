@@ -1,3 +1,4 @@
+using Grayjay.Engine.Exceptions;
 using Grayjay.Engine.Models.Video.Sources;
 using Grayjay.Engine.Web;
 using Microsoft.ClearScript;
@@ -108,6 +109,9 @@ namespace Grayjay.Engine.Packages
 
         internal ImpResponse Perform(RequestDescriptor d, PackageHttpImpClient client = null)
         {
+            if (!_plugin.Config.IsUrlAllowed(d.Url))
+                throw new ScriptImplementationException(_plugin.Config, $"Attempted to access non-whitelisted url: {d.Url}\nAdd it to your config");
+
             client ??= d.UseAuth ? _clientAuth : _client;
             var target = d.ImpersonateTarget ?? client.DefaultImpersonateTarget;
             bool builtInHdrs = d.UseBuiltInHeaders ?? client.DefaultUseBuiltInHeaders;
