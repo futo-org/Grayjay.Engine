@@ -122,6 +122,10 @@ namespace Grayjay.Engine.Packages
                 _ => throw new NotImplementedException("Unsupported body type " + d.Body?.GetType()?.Name)
             };
 
+            var uri = new Uri(d.Url);
+            var pluginClient = d.UseAuth ? _plugin.HttpClientAuth : _plugin.HttpClient;
+            pluginClient.ApplyHeaders(uri, d.Headers, d.UseAuth, true);
+
             var req = new Libcurl.Request
             {
                 Url = d.Url,
@@ -136,6 +140,7 @@ namespace Grayjay.Engine.Packages
             };
 
             var res = Libcurl.Perform(req);
+            pluginClient.ProcessRequest(d.Method, res.Status, uri, res.Headers);
 
             var sanitized = SanitizeResponseHeaders(res.Headers, onlyWhitelisted: client.UseAuth || !_plugin.Config.AllowAllHttpHeaderAccess);
             if (d.ReturnType == ReturnType.Bytes)
