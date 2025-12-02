@@ -1,4 +1,5 @@
 ﻿using Grayjay.Engine.V8;
+using Microsoft.ClearScript;
 using Microsoft.ClearScript.JavaScript;
 using System;
 using System.Collections.Generic;
@@ -109,6 +110,12 @@ namespace Grayjay.Engine.Models.Video.Sources
                     IndexEnd = _obj.GetOrDefault<int>(_plugin, "indexEnd", nameof(DashManifestRawSource), IndexEnd);
 
                     return str;
+                }
+                else if(result is IJavaScriptObject scriptObj)
+                {
+                    if(scriptObj.PropertyNames.Contains("plugin_type"))
+                        throw GrayjayPlugin.GetExceptionFromV8(base._plugin.Config, scriptObj);
+                    else throw new NotImplementedException("Unsupported generate type: " + (result?.GetType()?.ToString() ?? ""));
                 }
                 else throw new NotImplementedException("Unsupported generate type: " + (result?.GetType()?.ToString() ?? ""));
             });
