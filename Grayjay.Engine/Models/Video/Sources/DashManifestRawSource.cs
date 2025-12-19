@@ -73,7 +73,17 @@ namespace Grayjay.Engine.Models.Video.Sources
         [V8Property("indexEnd", true)]
         public int IndexEnd { get; set; }
 
+        [V8Property("audioInitStart", true)]
+        public int AudioInitStart { get; set; }
+        [V8Property("audioInitEnd", true)]
+        public int AudioInitEnd { get; set; }
+        [V8Property("audioIndexStart", true)]
+        public int AudioIndexStart { get; set; }
+        [V8Property("audioIndexEnd", true)]
+        public int AudioIndexEnd { get; set; }
+
         public bool HasStreamMetadata => IndexStart > 0 && IndexEnd > 0 && InitEnd > 0;
+        public bool HasAudioStreamMetadata => AudioIndexStart > 0 && AudioIndexEnd > 0 && AudioInitEnd > 0;
 
         public StreamMetaData MetaData => new StreamMetaData()
         {
@@ -102,6 +112,10 @@ namespace Grayjay.Engine.Models.Video.Sources
                 IndexStart = _obj.GetOrDefault<int>(_plugin, "indexStart", nameof(DashManifestRawSource), IndexStart);
                 IndexEnd = _obj.GetOrDefault<int>(_plugin, "indexEnd", nameof(DashManifestRawSource), IndexEnd);
 
+                AudioInitStart = _obj.GetOrDefault<int>(_plugin, "audioInitStart", nameof(DashManifestRawSource), InitStart);
+                AudioInitEnd = _obj.GetOrDefault<int>(_plugin, "audioInitEnd", nameof(DashManifestRawSource), InitEnd);
+                AudioIndexStart = _obj.GetOrDefault<int>(_plugin, "audioIndexStart", nameof(DashManifestRawSource), IndexStart);
+                AudioIndexEnd = _obj.GetOrDefault<int>(_plugin, "audioIndexEnd", nameof(DashManifestRawSource), IndexEnd);
                 return str;
             }
             else throw new NotImplementedException("Unsupported generate type: " + (result?.GetType()?.ToString() ?? ""));
@@ -127,6 +141,11 @@ namespace Grayjay.Engine.Models.Video.Sources
                     InitEnd = _obj.GetOrDefault<int>(_plugin, "initEnd", nameof(DashManifestRawSource), InitEnd);
                     IndexStart = _obj.GetOrDefault<int>(_plugin, "indexStart", nameof(DashManifestRawSource), IndexStart);
                     IndexEnd = _obj.GetOrDefault<int>(_plugin, "indexEnd", nameof(DashManifestRawSource), IndexEnd);
+
+                    AudioInitStart = _obj.GetOrDefault<int>(_plugin, "audioInitStart", nameof(DashManifestRawSource), InitStart);
+                    AudioInitEnd = _obj.GetOrDefault<int>(_plugin, "audioInitEnd", nameof(DashManifestRawSource), InitEnd);
+                    AudioIndexStart = _obj.GetOrDefault<int>(_plugin, "audioIndexStart", nameof(DashManifestRawSource), IndexStart);
+                    AudioIndexEnd = _obj.GetOrDefault<int>(_plugin, "audioIndexEnd", nameof(DashManifestRawSource), IndexEnd);
 
                     return str;
                 }
