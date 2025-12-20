@@ -56,6 +56,9 @@ namespace Grayjay.Engine.Packages
         [ScriptMember("nodeType")]
         public string NodeType => _node.Name;
 
+        [ScriptMember("tagName")]
+        public string TagName => _node.NodeType == HtmlNodeType.Element ? _node.Name.ToUpperInvariant() : null;
+
         [ScriptMember("childNodes")]
         public object ChildNodes => _node.ChildNodes.Select(x => new DOMNode(_package, x)).ToScriptArray();
 
@@ -68,6 +71,10 @@ namespace Grayjay.Engine.Packages
         [Newtonsoft.Json.JsonIgnore]
         [ScriptMember("parentNode")]
         public DOMNode ParentNode => _node.ParentNode != null ? new DOMNode(_package, _node.ParentNode) : null;
+
+        [Newtonsoft.Json.JsonIgnore]
+        [ScriptMember("parentElement")]
+        public DOMNode ParentElement => ParentNode;
 
         [ScriptMember("attributes")]
         public Dictionary<string, string> Attributes => _node.Attributes.ToDictionary(x => x.Name, y => y.Value);
