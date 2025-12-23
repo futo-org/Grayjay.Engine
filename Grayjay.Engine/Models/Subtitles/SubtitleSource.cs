@@ -29,7 +29,8 @@ namespace Grayjay.Engine.Models.Subtitles
         public SubtitleSource(GrayjayPlugin plugin, IJavaScriptObject obj)
         {
             _obj = obj;
-            _config = plugin.Config;
+            if(plugin != null)
+                _config = plugin.Config;
             if (obj == null)
                 HasFetch = false;
             else
