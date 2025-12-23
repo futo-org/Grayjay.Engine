@@ -16,7 +16,7 @@ namespace Grayjay.Engine.Packages
     [NoDefaultScriptAccess]
     public class PackageBridge: Package
     {
-        public static int AppVersion { get; set; } = 10;
+        public static int AppVersion { get; set; } = 13;
 
         public override string VariableName => "bridge";
 
