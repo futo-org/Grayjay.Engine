@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Grayjay.Engine.V8;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -16,6 +17,8 @@ namespace Grayjay.Engine.Models.Video.Sources
         public int Duration { get; set; }
         public bool Priority { get; set; }
 
+        public bool Original { get; set; } = false;
+        public string Language { get; set; } = null;
 
         public VideoSourceDescription() { }
 
@@ -29,7 +32,9 @@ namespace Grayjay.Engine.Models.Video.Sources
                 Codec = source.Codec,
                 Name = source.Name,
                 Duration = source.Duration,
-                Priority = source.Priority
+                Priority = source.Priority,
+                Original = source.Original,
+                Language = source.Language
             };
         }
     }

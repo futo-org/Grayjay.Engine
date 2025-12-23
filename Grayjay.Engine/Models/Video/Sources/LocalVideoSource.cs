@@ -1,4 +1,6 @@
-﻿namespace Grayjay.Engine.Models.Video.Sources
+﻿using Grayjay.Engine.V8;
+
+namespace Grayjay.Engine.Models.Video.Sources
 {
     public class LocalVideoSource : IVideoSource, IStreamMetaDataSource
     {
@@ -18,6 +20,9 @@
         public string FilePath { get; set; }
         public long FileSize { get; set; }
 
+        public bool Original { get; set; } = false;
+        public string Language { get; set; } = null;
+
         public StreamMetaData MetaData { get; set; } = null;
 
         public static LocalVideoSource FromSource(IVideoSource source, string path, long size, StreamMetaData? metaData = null, string mimeType = null)
@@ -33,7 +38,9 @@
                 Priority = source.Priority,
                 FilePath = path,
                 FileSize = size,
-                MetaData = ((source is IStreamMetaDataSource msource) ? msource.MetaData : null) ?? metaData
+                MetaData = ((source is IStreamMetaDataSource msource) ? msource.MetaData : null) ?? metaData,
+                Original = source.Original,
+                Language = source.Language
             };
         }
     }

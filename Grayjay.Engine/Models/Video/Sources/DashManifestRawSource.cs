@@ -82,6 +82,10 @@ namespace Grayjay.Engine.Models.Video.Sources
         [V8Property("audioIndexEnd", true)]
         public int AudioIndexEnd { get; set; }
 
+        [V8Property("original", true)]
+        public bool Original { get; set; } = false;
+        [V8Property("language", true)]
+        public string Language { get; set; } = null;
         public bool HasStreamMetadata => IndexStart > 0 && IndexEnd > 0 && InitEnd > 0;
         public bool HasAudioStreamMetadata => AudioIndexStart > 0 && AudioIndexEnd > 0 && AudioInitEnd > 0;
 
