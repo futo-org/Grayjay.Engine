@@ -370,4 +370,6 @@ public static class Libcurl
 
         return list;
     }
+
+    public static bool IsStatusOk(this Response r) => r is not null && r.Status is >= 200 and <= 299;
 }
