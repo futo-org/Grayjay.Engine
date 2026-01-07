@@ -9,10 +9,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
+using HttpHeaders = Grayjay.Engine.Models.HttpHeaders;
 //TODO: Cookies
 
 namespace Grayjay.Engine.Packages
@@ -134,7 +137,7 @@ namespace Grayjay.Engine.Packages
             {
                 Url = d.Url,
                 Method = d.Method,
-                Headers = d.Headers ?? new Dictionary<string, string>(),
+                Headers = d.Headers?.ToList() ?? new List<KeyValuePair<string, string>>(),
                 Body = bytes,
                 UseBuiltInHeaders = builtInHdrs,
                 ImpersonateTarget = target,
@@ -144,37 +147,41 @@ namespace Grayjay.Engine.Packages
             };
 
             var res = Libcurl.Perform(req);
-            pluginClient.ProcessRequest(d.Method, res.Status, uri, res.Headers);
+            var resHeaders = new Models.HttpHeaders(res.Headers);
+            pluginClient.ProcessRequest(d.Method, res.Status, uri, resHeaders);
 
-            var sanitized = SanitizeResponseHeaders(res.Headers, onlyWhitelisted: client.UseAuth || !_plugin.Config.AllowAllHttpHeaderAccess);
+            var sanitized = SanitizeResponseHeaders(resHeaders, onlyWhitelisted: client.UseAuth || !_plugin.Config.AllowAllHttpHeaderAccess);
             if (d.ReturnType == ReturnType.Bytes)
             {
-                return new ImpJSBytesResponse(_plugin, res.Status, res.BodyBytes ?? Array.Empty<byte>(), sanitized, res.EffectiveUrl);
+                return new ImpJSBytesResponse(_plugin, res.Status, res.BodyBytes ?? Array.Empty<byte>(), sanitized.ToDictionaryList(), res.EffectiveUrl);
             }
             else
             {
                 var text = res.BodyBytes != null ? Encoding.UTF8.GetString(res.BodyBytes) : null;
-                return new ImpStringResponse(res.Status, text, sanitized, res.EffectiveUrl);
+                return new ImpStringResponse(res.Status, text, sanitized.ToDictionaryList(), res.EffectiveUrl);
             }
         }
 
-        private static Dictionary<string, List<string>> SanitizeResponseHeaders(Dictionary<string, List<string>> headers, bool onlyWhitelisted)
+        private static HttpHeaders SanitizeResponseHeaders(HttpHeaders headers, bool onlyWhitelisted)
         {
-            var results = new Dictionary<string, List<string>>();
+            var results = new HttpHeaders();
             if (onlyWhitelisted)
             {
                 foreach (var h in headers)
                     if (WHITELISTED_RESPONSE_HEADERS.Contains(h.Key.ToLower()))
-                        results[h.Key] = h.Value;
+                        results.Add(h.Key, h.Value);
             }
             else
             {
                 foreach (var h in headers)
                 {
                     if (h.Key.Equals("set-cookie", StringComparison.OrdinalIgnoreCase))
-                        results[h.Key] = h.Value.Where(v => !v.ToLower().Contains("httponly")).ToList();
+                    {
+                        if (!h.Value.Contains("httponly", StringComparison.InvariantCultureIgnoreCase))
+                            results.Add(h.Key, h.Value);
+                    }
                     else
-                        results[h.Key] = h.Value;
+                        results.Add(h.Key, h.Value);
                 }
             }
             return results;
@@ -252,11 +259,12 @@ namespace Grayjay.Engine.Packages
                 bool useAuth = false,
                 ScriptObject options = null)
             {
+                var hs = headers?.ToDictionary<string>();
                 var d = new RequestDescriptor
                 {
                     Method = method,
                     Url = url,
-                    Headers = headers?.ToDictionary<string>(),
+                    Headers = hs != null ? new HttpHeaders(hs) : new HttpHeaders(),
                     UseAuth = useAuth,
                     ReturnType = ReturnType.String
                 };
@@ -281,11 +289,12 @@ namespace Grayjay.Engine.Packages
                 bool useAuth = false,
                 ScriptObject options = null)
             {
+                var hs = headers?.ToDictionary<string>();
                 var d = new RequestDescriptor
                 {
                     Method = method,
                     Url = url,
-                    Headers = headers?.ToDictionary<string>(),
+                    Headers = hs != null ? new HttpHeaders(hs) : new HttpHeaders(),
                     Body = body,
                     UseAuth = useAuth,
                     ReturnType = ReturnType.String
@@ -347,7 +356,7 @@ namespace Grayjay.Engine.Packages
         {
             public string Method { get; set; }
             public string Url { get; set; }
-            public Dictionary<string, string> Headers { get; set; }
+            public Grayjay.Engine.Models.HttpHeaders Headers { get; set; }
             public object Body { get; set; }
             public ReturnType ReturnType { get; set; }
             public int TimeoutMs { get; set; }
@@ -426,7 +435,7 @@ namespace Grayjay.Engine.Packages
                 {
                     Method = method,
                     Url = url,
-                    Headers = map,
+                    Headers = new HttpHeaders(map),
                     ReturnType = useByteResponses ? ReturnType.Bytes : ReturnType.String
                 };
 
@@ -450,7 +459,7 @@ namespace Grayjay.Engine.Packages
                 {
                     Method = method,
                     Url = url,
-                    Headers = map,
+                    Headers = new HttpHeaders(map),
                     Body = body,
                     ReturnType = useByteResponses ? ReturnType.Bytes : ReturnType.String
                 };

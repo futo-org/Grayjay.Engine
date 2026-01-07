@@ -4,11 +4,15 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.ClearScript.JavaScript;
 using static Grayjay.Engine.Packages.PackageHttp;
+
+using HttpHeaders = Grayjay.Engine.Models.HttpHeaders;
 
 namespace Grayjay.Engine.Web
 {
@@ -55,9 +59,9 @@ namespace Grayjay.Engine.Web
         }
 
 
-        public Response Request(string method, string url, Dictionary<string, string> headers) => Request(method, url, null, headers);
+        public Response Request(string method, string url, HttpHeaders headers) => Request(method, url, null, headers);
 
-        public Response Request(string method, string url, object body, Dictionary<string, string> headers)
+        public Response Request(string method, string url, object body, HttpHeaders headers)
         {
             try
             {
@@ -67,7 +71,7 @@ namespace Grayjay.Engine.Web
                     throw new ArgumentException("No method provided");
 
 
-                headers = headers ?? new Dictionary<string, string>();
+                headers = headers ?? new HttpHeaders();
 
                 /*
                 HttpWebRequest req = WebRequest.CreateHttp(url);
@@ -133,12 +137,9 @@ namespace Grayjay.Engine.Web
 
                 AfterRequest(resp);
 
-                var hds = resp.Headers.ToDictionary(x => x.Key.ToLower(), y => string.Join(", ", y.Value));
-                foreach(var header in resp.Content.Headers)
-                {
-                    if (!hds.ContainsKey(header.Key))
-                        hds.Add(header.Key.ToLower(), string.Join(", ", header.Value));
-                }
+                var hds = new HttpHeaders(resp.Headers);
+                var respContentHeaders = new HttpHeaders(resp.Content.Headers);
+                hds.MergeFrom(respContentHeaders, false);
 
                 if (!resp.IsSuccessStatusCode)
                 {
@@ -167,7 +168,7 @@ namespace Grayjay.Engine.Web
                 return new Response()
                 {
                     Code = (int)httpResponse.StatusCode,
-                    Headers = httpResponse.Headers.AllKeys.ToDictionary(x => x.ToLower(), y => httpResponse.Headers[y]),
+                    Headers = new HttpHeaders(httpResponse.Headers),
                     Body = new ResponseContent(httpResponse.GetResponseStream()),
                     Url = httpResponse.ResponseUri?.ToString()
                 };
@@ -177,14 +178,14 @@ namespace Grayjay.Engine.Web
 
         public Response TryHead(string url)
         {
-            return Request("HEAD", url, new Dictionary<string, string>());
+            return Request("HEAD", url, new HttpHeaders());
         }
 
 
-        public Response GET(string url, Dictionary<string, string> headers) => Request("GET", url, headers);
-        public Response POST(string url, string body, Dictionary<string, string> headers) => Request("POST", url, body, headers);
+        public Response GET(string url, HttpHeaders headers) => Request("GET", url, headers);
+        public Response POST(string url, string body, HttpHeaders headers) => Request("POST", url, body, headers);
 
-        public SocketObject Socket(string url, Dictionary<string, string> headers = null, SocketObject.Handlers handlers = null)
+        public SocketObject Socket(string url, HttpHeaders headers = null, SocketObject.Handlers handlers = null)
         {
             var socket = new SocketObject(url, headers, handlers);
             socket.Connect();
@@ -193,12 +194,12 @@ namespace Grayjay.Engine.Web
         public class SocketObject
         {
             private string _url;
-            private Dictionary<string, string> _headers = null;
+            private HttpHeaders _headers = null;
             private SocketObject.Handlers _handlers;
 
             private ClientWebSocket _socket = null;
 
-            public SocketObject(string url, Dictionary<string, string> headers = null, SocketObject.Handlers handlers = null)
+            public SocketObject(string url, HttpHeaders headers = null, SocketObject.Handlers handlers = null)
             {
                 _handlers = handlers ?? new Handlers();
                 _url = url;
@@ -274,8 +275,8 @@ namespace Grayjay.Engine.Web
             public bool IsOk => Code >= 200 && Code < 300;
             public int Code { get; set; }
             public string Url { get; set; }
-            public Dictionary<string, string> Headers { get; set; } = new Dictionary<string, string>();
-            public int ContentLength => (Headers.ContainsKey("content-length") ? int.Parse(Headers["content-length"]) : 0);
+            public HttpHeaders Headers { get; set; } = new HttpHeaders();
+            public int ContentLength => Headers.TryGetFirst("content-length", out var cls) ? int.Parse(cls!) : 0;
             public ResponseContent Body { get; set; }
         }
 

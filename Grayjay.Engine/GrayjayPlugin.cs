@@ -37,6 +37,8 @@ using System.Xml.Linq;
 using static Grayjay.Engine.GrayjayPlugin;
 using static Microsoft.ClearScript.V8.V8CpuProfile;
 
+using HttpHeaders = Grayjay.Engine.Models.HttpHeaders;
+
 namespace Grayjay.Engine
 {
     public class GrayjayPlugin : IDisposable
@@ -1290,7 +1292,7 @@ namespace Grayjay.Engine
         }
 
         
-        public void ApplyHeaders(Uri url, Dictionary<string, string> headers, bool applyAuth = false, bool applyOtherCookies = false)
+        public void ApplyHeaders(Uri url, HttpHeaders headers, bool applyAuth = false, bool applyOtherCookies = false)
         {
             var domain = url.Host.ToLower();
             var auth = _auth;
@@ -1298,11 +1300,7 @@ namespace Grayjay.Engine
             if (applyAuth && auth != null)
             {
                 foreach (var header in auth.Headers.Where(x => domain.MatchesDomain(x.Key)).SelectMany(x => x.Value).ToList())
-                {
-                    if (headers.ContainsKey(header.Key))
-                        headers.Remove(header.Key);
-                    headers.Add(header.Key, header.Value);
-                }
+                    headers[header.Key] = header.Value;
             }
 
             if (DoApplyCookies && (applyAuth || applyOtherCookies))
@@ -1333,7 +1331,7 @@ namespace Grayjay.Engine
                     {
                         var cookieString = string.Join("; ", cookiesToApply.Select(x => x.Key + "=" + x.Value));
 
-                        var existingCookies = (headers.ContainsKey("Cookie")) ? headers["Cookie"] : null;
+                        var existingCookies = headers.Contains("Cookie") ? headers["Cookie"] : null;
                         if (!string.IsNullOrEmpty(existingCookies))
                         {
                             headers.Remove("Cookie");
@@ -1352,7 +1350,7 @@ namespace Grayjay.Engine
                 }
             }
         }
-        public void ProcessRequest(string method, int responseCode, Uri url, Dictionary<string, List<string>> headers)
+        public void ProcessRequest(string method, int responseCode, Uri url, HttpHeaders headers)
         {
             if (DoUpdateCookies)
             {
@@ -1363,60 +1361,57 @@ namespace Grayjay.Engine
                 {
                     if (header.Key.ToLower() == "set-cookie")
                     {
-                        if (header.Key.ToLower() == "set-cookie")
+                        var domainToUse = domain;
+                        var str = header.Value;
+                        if (string.IsNullOrEmpty(str))
+                            continue;
+                        (var cookieKey, var cookieValue) = CookieStringToPair(str);
+                        if (!string.IsNullOrEmpty(cookieKey) && !string.IsNullOrEmpty(cookieValue))
                         {
-                            var domainToUse = domain;
-                            var str = header.Value.FirstOrDefault();
-                            if (string.IsNullOrEmpty(str))
+                            var cookieParts = cookieValue.Split(";");
+                            if (cookieParts.Length == 0)
                                 continue;
-                            (var cookieKey, var cookieValue) = CookieStringToPair(str);
-                            if (!string.IsNullOrEmpty(cookieKey) && !string.IsNullOrEmpty(cookieValue))
+                            cookieValue = cookieParts[0].Trim();
+                            var cookieVariables = cookieParts.Skip(1).Select((it) =>
                             {
-                                var cookieParts = cookieValue.Split(";");
-                                if (cookieParts.Length == 0)
-                                    continue;
-                                cookieValue = cookieParts[0].Trim();
-                                var cookieVariables = cookieParts.Skip(1).Select((it) =>
-                                {
-                                    var splitIndex = it.IndexOf("=");
-                                    if (splitIndex < 0)
-                                        return (it.Trim().ToLower(), "");
-                                    return (it.Substring(0, splitIndex).ToLower().Trim(), it.Substring(splitIndex + 1).Trim());
-                                }).ToDictionary(x => x.Item1, y => y.Item2);
-                                domainToUse = (cookieVariables.ContainsKey("domain")) ? cookieVariables["domain"].ToLower() : defaultCookieDomain;
-                                if (!domainToUse.StartsWith("."))
-                                    domainToUse = "." + domainToUse;
-                            }
+                                var splitIndex = it.IndexOf("=");
+                                if (splitIndex < 0)
+                                    return (it.Trim().ToLower(), "");
+                                return (it.Substring(0, splitIndex).ToLower().Trim(), it.Substring(splitIndex + 1).Trim());
+                            }).ToDictionary(x => x.Item1, y => y.Item2);
+                            domainToUse = (cookieVariables.ContainsKey("domain")) ? cookieVariables["domain"].ToLower() : defaultCookieDomain;
+                            if (!domainToUse.StartsWith("."))
+                                domainToUse = "." + domainToUse;
+                        }
 
-                            if ((_auth != null || _currentCookieMap.Count != 0))
-                            {
-                                Dictionary<string, string> cookieMap;
-                                if (_currentCookieMap.ContainsKey(domainToUse))
-                                    cookieMap = _currentCookieMap[domainToUse];
-                                else
-                                {
-                                    var newMap = new Dictionary<string, string>();
-                                    _currentCookieMap[domainToUse] = newMap;
-                                    cookieMap = newMap;
-                                }
-                                if (cookieMap.ContainsKey(cookieKey) || DoAllowNewCookies)
-                                    cookieMap[cookieKey] = cookieValue;
-                            }
+                        if ((_auth != null || _currentCookieMap.Count != 0))
+                        {
+                            Dictionary<string, string> cookieMap;
+                            if (_currentCookieMap.ContainsKey(domainToUse))
+                                cookieMap = _currentCookieMap[domainToUse];
                             else
                             {
-                                Dictionary<string, string> cookieMap;
-                                if (_currentCookieMap.ContainsKey(domainToUse))
-                                    cookieMap = _otherCookieMap[domainToUse];
-                                else
-                                {
-                                    var newMap = new Dictionary<string, string>();
-                                    _otherCookieMap[domainToUse] = newMap;
-                                    cookieMap = newMap;
-                                }
-                                if (cookieMap.ContainsKey(cookieKey) || DoAllowNewCookies)
-                                {
-                                    cookieMap[cookieKey] = cookieValue;
-                                }
+                                var newMap = new Dictionary<string, string>();
+                                _currentCookieMap[domainToUse] = newMap;
+                                cookieMap = newMap;
+                            }
+                            if (cookieMap.ContainsKey(cookieKey) || DoAllowNewCookies)
+                                cookieMap[cookieKey] = cookieValue;
+                        }
+                        else
+                        {
+                            Dictionary<string, string> cookieMap;
+                            if (_currentCookieMap.ContainsKey(domainToUse))
+                                cookieMap = _otherCookieMap[domainToUse];
+                            else
+                            {
+                                var newMap = new Dictionary<string, string>();
+                                _otherCookieMap[domainToUse] = newMap;
+                                cookieMap = newMap;
+                            }
+                            if (cookieMap.ContainsKey(cookieKey) || DoAllowNewCookies)
+                            {
+                                cookieMap[cookieKey] = cookieValue;
                             }
                         }
                     }
@@ -1436,60 +1431,57 @@ namespace Grayjay.Engine
                 {
                     if(header.Key.ToLower() == "set-cookie")
                     {
-                        if(header.Key.ToLower() == "set-cookie")
+                        var domainToUse = domain;
+                        var str = header.Value.FirstOrDefault();
+                        if (string.IsNullOrEmpty(str))
+                            continue;
+                        (var cookieKey, var cookieValue) = CookieStringToPair(str);
+                        if(!string.IsNullOrEmpty(cookieKey) && !string.IsNullOrEmpty(cookieValue))
                         {
-                            var domainToUse = domain;
-                            var str = header.Value.FirstOrDefault();
-                            if (string.IsNullOrEmpty(str))
+                            var cookieParts = cookieValue.Split(";");
+                            if (cookieParts.Length == 0)
                                 continue;
-                            (var cookieKey, var cookieValue) = CookieStringToPair(str);
-                            if(!string.IsNullOrEmpty(cookieKey) && !string.IsNullOrEmpty(cookieValue))
+                            cookieValue = cookieParts[0].Trim();
+                            var cookieVariables = cookieParts.Skip(1).Select((it) =>
                             {
-                                var cookieParts = cookieValue.Split(";");
-                                if (cookieParts.Length == 0)
-                                    continue;
-                                cookieValue = cookieParts[0].Trim();
-                                var cookieVariables = cookieParts.Skip(1).Select((it) =>
-                                {
-                                    var splitIndex = it.IndexOf("=");
-                                    if (splitIndex < 0)
-                                        return (it.Trim().ToLower(), "");
-                                    return (it.Substring(0, splitIndex).ToLower().Trim(), it.Substring(splitIndex + 1).Trim());
-                                }).ToDictionary(x => x.Item1, y => y.Item2);
-                                domainToUse = (cookieVariables.ContainsKey("domain")) ? cookieVariables["domain"].ToLower() : defaultCookieDomain;
-                                if(!domainToUse.StartsWith("."))
-                                    domainToUse = "." + domainToUse;
-                            }
+                                var splitIndex = it.IndexOf("=");
+                                if (splitIndex < 0)
+                                    return (it.Trim().ToLower(), "");
+                                return (it.Substring(0, splitIndex).ToLower().Trim(), it.Substring(splitIndex + 1).Trim());
+                            }).ToDictionary(x => x.Item1, y => y.Item2);
+                            domainToUse = (cookieVariables.ContainsKey("domain")) ? cookieVariables["domain"].ToLower() : defaultCookieDomain;
+                            if(!domainToUse.StartsWith("."))
+                                domainToUse = "." + domainToUse;
+                        }
 
-                            if((_auth != null || _currentCookieMap.Count != 0))
-                            {
-                                Dictionary<string, string> cookieMap;
-                                if (_currentCookieMap.ContainsKey(domainToUse))
-                                    cookieMap = _currentCookieMap[domainToUse];
-                                else
-                                {
-                                    var newMap = new Dictionary<string, string>();
-                                    _currentCookieMap[domainToUse] = newMap;
-                                    cookieMap = newMap;
-                                }
-                                if(cookieMap.ContainsKey(cookieKey) || DoAllowNewCookies)
-                                    cookieMap[cookieKey] = cookieValue;
-                            }
+                        if((_auth != null || _currentCookieMap.Count != 0))
+                        {
+                            Dictionary<string, string> cookieMap;
+                            if (_currentCookieMap.ContainsKey(domainToUse))
+                                cookieMap = _currentCookieMap[domainToUse];
                             else
                             {
-                                Dictionary<string, string> cookieMap;
-                                if (_currentCookieMap.ContainsKey(domainToUse))
-                                    cookieMap = _otherCookieMap[domainToUse];
-                                else
-                                {
-                                    var newMap = new Dictionary<string, string>();
-                                    _otherCookieMap[domainToUse] = newMap;
-                                    cookieMap = newMap;
-                                }
-                                if(cookieMap.ContainsKey(cookieKey) || DoAllowNewCookies)
-                                {
-                                    cookieMap[cookieKey] = cookieValue;
-                                }
+                                var newMap = new Dictionary<string, string>();
+                                _currentCookieMap[domainToUse] = newMap;
+                                cookieMap = newMap;
+                            }
+                            if(cookieMap.ContainsKey(cookieKey) || DoAllowNewCookies)
+                                cookieMap[cookieKey] = cookieValue;
+                        }
+                        else
+                        {
+                            Dictionary<string, string> cookieMap;
+                            if (_currentCookieMap.ContainsKey(domainToUse))
+                                cookieMap = _otherCookieMap[domainToUse];
+                            else
+                            {
+                                var newMap = new Dictionary<string, string>();
+                                _otherCookieMap[domainToUse] = newMap;
+                                cookieMap = newMap;
+                            }
+                            if(cookieMap.ContainsKey(cookieKey) || DoAllowNewCookies)
+                            {
+                                cookieMap[cookieKey] = cookieValue;
                             }
                         }
                     }

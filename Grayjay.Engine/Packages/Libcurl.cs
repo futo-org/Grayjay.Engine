@@ -12,10 +12,10 @@ public static class Libcurl
 
     public sealed class Request
     {
-        public string Url;
-        public string Method;
-        public Dictionary<string, string> Headers = new();
-        public byte[] Body;
+        public required string Url;
+        public required string Method;
+        public List<KeyValuePair<string, string>> Headers = new();
+        public byte[]? Body;
         public string ImpersonateTarget = "chrome136";
         public bool UseBuiltInHeaders = true;
         public int TimeoutMs = 30000;
@@ -26,9 +26,9 @@ public static class Libcurl
     public sealed class Response
     {
         public int Status;
-        public string EffectiveUrl;
-        public byte[] BodyBytes;
-        public Dictionary<string, List<string>> Headers = new(StringComparer.OrdinalIgnoreCase);
+        public string? EffectiveUrl;
+        public required byte[] BodyBytes;
+        public List<KeyValuePair<string, string>> Headers = new();
     }
 
     private enum CURLcode : int
@@ -352,22 +352,22 @@ public static class Libcurl
         if (c != CURLcode.CURLE_OK) throw new InvalidOperationException($"libcurl error: {GetErr(c)}");
     }
 
-    private static Dictionary<string, List<string>> ParseHeaders(List<string> lines)
+    private static List<KeyValuePair<string, string>> ParseHeaders(List<string> lines)
     {
-        var dict = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        var list = new List<KeyValuePair<string, string>>(capacity: lines.Count);
+
         foreach (var line in lines)
         {
             var idx = line.IndexOf(':');
             if (idx <= 0) continue;
+
             var name = line[..idx].Trim();
-            var val  = line[(idx + 1)..].Trim();
-            if (!dict.TryGetValue(name, out var list))
-            {
-                list = new List<string>();
-                dict[name] = list;
-            }
-            list.Add(val);
+            if (name.Length == 0) continue;
+
+            var val = line[(idx + 1)..].Trim();
+            list.Add(new KeyValuePair<string, string>(name, val));
         }
-        return dict;
+
+        return list;
     }
 }

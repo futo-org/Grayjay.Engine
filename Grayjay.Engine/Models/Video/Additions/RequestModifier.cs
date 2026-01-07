@@ -12,7 +12,7 @@ namespace Grayjay.Engine.Models.Video.Additions
     {
         bool AllowByteSkip { get; }
 
-        Request ModifyRequest(string url, Dictionary<string, string> headers);
+        Request ModifyRequest(string url, HttpHeaders headers);
     }
 
     public class RequestModifier : IRequestModifier
@@ -32,13 +32,13 @@ namespace Grayjay.Engine.Models.Video.Additions
                 throw new ScriptImplementationException(plugin.Config, "RequestModifier is missing modifyRequest");
         }
 
-        public Request ModifyRequest(string url, Dictionary<string, string> headers)
+        public Request ModifyRequest(string url, HttpHeaders headers)
         {
             if (_modifier == null)
                 return new Request(_plugin, url, headers);
 
-            var result = _modifier.InvokeV8(_plugin.Config, "modifyRequest", url, headers.ToPropertyBag<string>());
-
+            //TODO: This needs to be List<KeyValuePair<string, string>>
+            var result = _modifier.InvokeV8(_plugin.Config, "modifyRequest", url, headers.ToDictionaryLastWins().ToPropertyBag<string>());
             return V8Converter.ConvertValue<Request>(_plugin, result);
         }
     }
@@ -48,14 +48,14 @@ namespace Grayjay.Engine.Models.Video.Additions
 
         public bool AllowByteSkip { get; set; }
 
-        private Func<string, Dictionary<string, string>, Request> _modifier = null;
+        private Func<string, HttpHeaders, Request> _modifier = null;
 
-        public AdhocRequestModifier(Func<string, Dictionary<string, string>, Request> func)
+        public AdhocRequestModifier(Func<string, HttpHeaders, Request> func)
         {
             _modifier = func;
         }
 
-        public Request ModifyRequest(string url, Dictionary<string, string> headers)
+        public Request ModifyRequest(string url, HttpHeaders headers)
         {
             return _modifier(url, headers);
         }
@@ -64,14 +64,16 @@ namespace Grayjay.Engine.Models.Video.Additions
     public class Request
     {
         public string Url { get; set; }
-        public Dictionary<string, string> Headers { get; set; }
+        public HttpHeaders Headers { get; set; }
         public Options Options { get; set; }
 
 
         public Request(GrayjayPlugin plugin, IJavaScriptObject obj)
         {
             Url = obj.GetOrDefault<string>(plugin, "url", nameof(Request), null);
-            Headers = obj.GetOrDefault<Dictionary<string, string>>(plugin, "headers", nameof(Request), null);
+            //TODO: This needs to be List<KeyValuePair<string, string>>
+            var headers = obj.GetOrDefault<Dictionary<string, string>>(plugin, "headers", nameof(Request), null);
+            Headers = headers != null ? new HttpHeaders(headers) : new HttpHeaders();
             Options = obj.GetOrDefault<Options>(plugin, "options", nameof(Request), null);
             if (Options == null)
                 Options = new Options()
@@ -82,7 +84,7 @@ namespace Grayjay.Engine.Models.Video.Additions
             Initialize(plugin, null, null);
         }
 
-        public Request(GrayjayPlugin plugin, string url, Dictionary<string, string> headers, Options options = null, string originalUrl = null, Dictionary<string, string> originalHeaders = null, bool applyOtherHeadersByDefault = false)
+        public Request(GrayjayPlugin plugin, string url, HttpHeaders headers, Options options = null, string originalUrl = null, HttpHeaders originalHeaders = null, bool applyOtherHeadersByDefault = false)
         {
             Url = url;
             Headers = headers;
@@ -97,7 +99,7 @@ namespace Grayjay.Engine.Models.Video.Additions
         }
 
 
-        public void Initialize(GrayjayPlugin plugin, string originalUrl, Dictionary<string, string> originalHeaders)
+        public void Initialize(GrayjayPlugin plugin, string originalUrl, HttpHeaders originalHeaders)
         {
             var config = plugin.Config;
 
@@ -105,7 +107,7 @@ namespace Grayjay.Engine.Models.Video.Additions
             {
                 if (Options?.ApplyOtherHeaders ?? false)
                 {
-                    Dictionary<string, string> headersToSet = Headers?.ToDictionary(x => x.Key, y => y.Value);
+                    var headersToSet = new HttpHeaders(Headers);
                     if (originalHeaders != null)
                     {
                         foreach (var header in originalHeaders)
@@ -117,7 +119,7 @@ namespace Grayjay.Engine.Models.Video.Additions
                         Headers = headersToSet;
                     }
                     else
-                        Headers = Headers ?? originalHeaders ?? new Dictionary<string, string>();
+                        Headers = Headers ?? originalHeaders ?? new HttpHeaders();
                 }
 
                 if (Options.ApplyCookieClient != null && Url != null)
@@ -125,7 +127,7 @@ namespace Grayjay.Engine.Models.Video.Additions
                     var client = plugin.GetHttpClientById(Options.ApplyCookieClient);
                     if (client != null)
                     {
-                        var toModifyHeaders = Headers.ToDictionary(x => x.Key, y => y.Value);
+                        var toModifyHeaders = new HttpHeaders(Headers);
                         client.ApplyHeaders(new Uri(Url), toModifyHeaders, false, true);
                         Headers = toModifyHeaders;
                     }
@@ -134,7 +136,7 @@ namespace Grayjay.Engine.Models.Video.Additions
         }
 
 
-        public Request Modify(GrayjayPlugin plugin, string originalUrl, Dictionary<string, string> originalHeaders)
+        public Request Modify(GrayjayPlugin plugin, string originalUrl, HttpHeaders originalHeaders)
         {
             return new Request(plugin, Url ?? originalUrl, Headers ?? originalHeaders, Options, originalUrl, originalHeaders, true);
         }
@@ -155,5 +157,7 @@ namespace Grayjay.Engine.Models.Video.Additions
         public string ApplyCookieClient { get; set; }
         [V8Property("applyOtherHeaders")]
         public bool ApplyOtherHeaders { get; set; }
+        [V8Property("impersonateTarget")]
+        public string? ImpersonateTarget { get; set; }
     }
 }
