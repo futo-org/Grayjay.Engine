@@ -29,6 +29,9 @@ namespace Grayjay.Engine.Models.Video.Sources
         public int Duration { get; }
         public bool Priority { get; }
 
+        public bool Original { get; set; }
+        public string Language { get; set; }
+
         public static Type GetPolymorphicType(IJavaScriptObject obj)
         {
             string type = (string)obj.GetProperty("plugin_type");

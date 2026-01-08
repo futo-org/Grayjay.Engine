@@ -83,14 +83,22 @@ namespace Grayjay.Engine.Setting
         public string Description { get; set; }
         public int Order { get; set; }
 
-        public SettingsFieldAttribute(string name, string type, string description, int order, string id = null)
+        public bool Advanced { get; set; }
+
+        public SettingsFieldAttribute(string name, string type, string description, int order, string id = null, bool advanced = false)
         {
             Name = name;
             Type = type;
             Description = description;
             Order = order;
             ID = id;
+            Advanced = advanced;
         }
+    }
+
+    public class SettingsAdvancedAttribute: Attribute
+    {
+        public SettingsAdvancedAttribute() { }
     }
     public class SettingsDropdownOptionsAttribute : Attribute
     {
@@ -121,13 +129,15 @@ namespace Grayjay.Engine.Setting
         public string WarningDialog { get; set; }
 
         public bool Visible { get; set; } = true;
+        public bool Advanced { get; set; } = false;
 
-        public SettingsField(string title, string description, string property = null, string id = null)
+        public SettingsField(string title, string description, string property = null, string id = null, bool advanced = false)
         {
             ID = id;
             Title = title;
             Description = description;
             Property = property.ToCamelCased();
+            Advanced = advanced;
         }
 
         public static SettingsField[] FromObject(object value) => FromObject(value.GetType(), value);
@@ -146,24 +156,39 @@ namespace Grayjay.Engine.Setting
             SettingsFieldAttribute attr = info.GetCustomAttribute<SettingsFieldAttribute>();
             if (attr == null)
                 return null;
-            
+
+
+            SettingsField? field = null;
             switch(attr.Type)
             {
                 case TOGGLE:
-                    return new SettingsFieldToggle(attr.Name, attr.Description, info.Name, (bool)value, attr?.ID);
+                    field =  new SettingsFieldToggle(attr.Name, attr.Description, info.Name, (bool)value, attr?.ID);
+                    break;
                 case DROPDOWN:
                     SettingsDropdownOptionsAttribute attrDropdown = info.GetCustomAttribute<SettingsDropdownOptionsAttribute>();
                     if (attrDropdown != null)
-                        return new SettingsFieldDropDown(attr.Name, attr.Description, info.Name, (int)value, attr?.ID, attrDropdown.Options);
+                        field = new SettingsFieldDropDown(attr.Name, attr.Description, info.Name, (int)value, attr?.ID, attrDropdown.Options);
                     else
-                        return null;
+                        field = null;
+                    break;
                 case GROUP:
-                    return new SettingsFieldGroup(attr.Name, attr.Description, info.Name, attr?.ID, FromObject(value?.GetType(), value));
+                    field = new SettingsFieldGroup(attr.Name, attr.Description, info.Name, attr?.ID, FromObject(value?.GetType(), value));
+                    break;
                 case READONLY:
-                    return new SettingsFieldReadOnly(attr.Name, attr.Description, info.Name, (string)value, attr?.ID);
+                    field = new SettingsFieldReadOnly(attr.Name, attr.Description, info.Name, (string)value, attr?.ID);
+                    break;
                 default:
-                    return null;
+                    field = null;
+                    break;
             }
+
+            if(field != null)
+            {
+                var advanced = info.GetCustomAttribute<SettingsAdvancedAttribute>();
+                if (advanced != null)
+                    field.Advanced = true;
+            }
+            return field;
         }
 
         public const string DROPDOWN = "dropdown";
