@@ -139,7 +139,7 @@ namespace Grayjay.Engine.Web
 
                 var hds = new HttpHeaders(resp.Headers);
                 var respContentHeaders = new HttpHeaders(resp.Content.Headers);
-                hds.MergeFrom(respContentHeaders, false);
+                hds.MergeIfAbsentFrom(respContentHeaders);
 
                 if (!resp.IsSuccessStatusCode)
                 {

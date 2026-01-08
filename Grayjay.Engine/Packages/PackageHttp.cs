@@ -576,6 +576,7 @@ namespace Grayjay.Engine.Packages
                         _isOpen = false;
                         socketObj.InvokeV8(_package._plugin.Config, "failure", ex.Message);
                     };
+                //TODO: Some headers (set-cookie) will get lost this way
                 _socket = client.Socket(_url, new HttpHeaders(_headers.ToDictionary<string>()), handlers);
             }
 

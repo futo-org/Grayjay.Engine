@@ -223,6 +223,17 @@ public sealed class HttpHeaders : IReadOnlyCollection<KeyValuePair<string, strin
         AddRange(other._items);
     }
 
+    public void MergeIfAbsentFrom(HttpHeaders other)
+    {
+        if (other is null) throw new ArgumentNullException(nameof(other));
+
+        foreach (var (k, v) in other._items)
+        {
+            if (!Contains(k))
+                Add(k, v);
+        }
+    }
+
     public ILookup<string, string> ToLookup() => _items.ToLookup(kv => kv.Key, kv => kv.Value, NameComparer);
 
     public override string ToString()

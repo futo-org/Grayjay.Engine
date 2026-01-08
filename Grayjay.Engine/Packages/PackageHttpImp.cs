@@ -259,12 +259,11 @@ namespace Grayjay.Engine.Packages
                 bool useAuth = false,
                 ScriptObject options = null)
             {
-                var hs = headers?.ToDictionary<string>();
                 var d = new RequestDescriptor
                 {
                     Method = method,
                     Url = url,
-                    Headers = hs != null ? new HttpHeaders(hs) : new HttpHeaders(),
+                    Headers = HttpHeaders.FromScriptObject(headers),
                     UseAuth = useAuth,
                     ReturnType = ReturnType.String
                 };
@@ -289,12 +288,11 @@ namespace Grayjay.Engine.Packages
                 bool useAuth = false,
                 ScriptObject options = null)
             {
-                var hs = headers?.ToDictionary<string>();
                 var d = new RequestDescriptor
                 {
                     Method = method,
                     Url = url,
-                    Headers = hs != null ? new HttpHeaders(hs) : new HttpHeaders(),
+                    Headers = HttpHeaders.FromScriptObject(headers),
                     Body = body,
                     UseAuth = useAuth,
                     ReturnType = ReturnType.String
