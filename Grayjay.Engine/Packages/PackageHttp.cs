@@ -1,4 +1,5 @@
-﻿using Grayjay.Engine.Models.Video.Sources;
+﻿using Grayjay.Engine.Models;
+using Grayjay.Engine.Models.Video.Sources;
 using Grayjay.Engine.Web;
 using Microsoft.ClearScript;
 using Microsoft.ClearScript.JavaScript;
@@ -124,8 +125,8 @@ namespace Grayjay.Engine.Packages
                 client = descriptor.UseAuth ? _clientAuth : _client;
             ManagedHttpClient.Response resp = client.Client.Request(descriptor.Method, descriptor.Url, descriptor.Body, descriptor.Headers);
             HttpResponse result = (descriptor.ReturnType == ReturnType.Bytes) ?
-                 (HttpResponse)new HttpJSBytesResponse(_plugin, resp.Code, resp.Body.AsBytes(), SanitizeResponseHeaders(resp.Headers, descriptor.UseAuth || !_plugin.Config.AllowAllHttpHeaderAccess), resp.Url) :
-                 (HttpResponse)new HttpStringResponse(resp.Code, resp.Body.AsString(), SanitizeResponseHeaders(resp.Headers, descriptor.UseAuth || !_plugin.Config.AllowAllHttpHeaderAccess), resp.Url);
+                 (HttpResponse)new HttpJSBytesResponse(_plugin, resp.Code, resp.Body.AsBytes(), SanitizeResponseHeaders(resp.Headers, descriptor.UseAuth || !_plugin.Config.AllowAllHttpHeaderAccess).ToDictionaryList(), resp.Url) :
+                 (HttpResponse)new HttpStringResponse(resp.Code, resp.Body.AsString(), SanitizeResponseHeaders(resp.Headers, descriptor.UseAuth || !_plugin.Config.AllowAllHttpHeaderAccess).ToDictionaryList(), resp.Url);
 
             w.Stop();
             if (Logger.WillLog(LogLevel.Debug))
@@ -133,23 +134,9 @@ namespace Grayjay.Engine.Packages
             return result;
         }
 
-
-        private static Dictionary<string, List<string>> SanitizeResponseHeaders(Dictionary<string, string> headers, bool onlyWhitelisted = false)
+        private static HttpHeaders SanitizeResponseHeaders(HttpHeaders headers, bool onlyWhitelisted = false)
         {
-            return SanitizeResponseHeaders(headers.ToDictionary(x => x.Key, y =>
-            {
-                if (y.Key.ToLower() == "set-cookie")
-                    return y.Value.Split(' ').Select(y => y.Trim()).ToList();
-                else
-                    return new List<string>()
-                    {
-                        y.Value
-                    };
-            }), onlyWhitelisted);
-        }
-        private static Dictionary<string, List<string>> SanitizeResponseHeaders(Dictionary<string, List<string>> headers, bool onlyWhitelisted = false)
-        {
-            Dictionary<string, List<string>> results = new Dictionary<string, List<string>>();
+            HttpHeaders results = new HttpHeaders();
             if (onlyWhitelisted)
             {
                 foreach (var header in headers)
@@ -160,12 +147,15 @@ namespace Grayjay.Engine.Packages
             }
             else
             {
-                foreach (var header in headers)
+                foreach (var h in headers)
                 {
-                    if (header.Key.ToLower() == "set-cookie" && !header.Value.Any(x => x.ToLower().Contains("httponly")))
-                        results.Add(header.Key, header.Value.Where(x => !x.ToLower().Contains("httponly")).ToList());
+                    if (h.Key.Equals("set-cookie", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!h.Value.Contains("httponly", StringComparison.InvariantCultureIgnoreCase))
+                            results.Add(h.Key, h.Value);
+                    }
                     else
-                        results.Add(header.Key, header.Value);
+                        results.Add(h.Key, h.Value);
                 }
             }
 
@@ -265,7 +255,7 @@ namespace Grayjay.Engine.Packages
                 {
                     Method = method,
                     Url = url,
-                    Headers = headers?.ToDictionary<string>(),
+                    Headers = HttpHeaders.FromScriptObject(headers),
                     UseAuth = useAuth
                 });
                 return this;
@@ -277,7 +267,7 @@ namespace Grayjay.Engine.Packages
                 {
                     Method = method,
                     Url = url,
-                    Headers = headers?.ToDictionary<string>(),
+                    Headers = HttpHeaders.FromScriptObject(headers),
                     Body = body,
                     UseAuth = useAuth
                 });
@@ -320,7 +310,7 @@ namespace Grayjay.Engine.Packages
         {
             public string Method { get; set; }
             public string Url { get; set; }
-            public Dictionary<string, string> Headers { get; set; }
+            public HttpHeaders Headers { get; set; }
             public bool UseAuth { get; set; }
             public object Body { get; set; }
             public string ContentType { get; set; }
@@ -341,7 +331,7 @@ namespace Grayjay.Engine.Packages
             private PackageHttp _package;
             private PluginHttpClient _client;
 
-            private Dictionary<string, string> _defaultHeaders = new Dictionary<string, string>();
+            private HttpHeaders _defaultHeaders = new HttpHeaders();
             private string _clientId = null;
 
             [ScriptMember("clientId")]
@@ -402,7 +392,6 @@ namespace Grayjay.Engine.Packages
                 }
             }
 
-
             [ScriptMember("request")]
             public object Request(string method, string url, ScriptObject headers = null, bool useByteResponses = false)
             {
@@ -412,7 +401,7 @@ namespace Grayjay.Engine.Packages
                 {
                     Method = method,
                     Url = url,
-                    Headers = headers.ToDictionary<string>(),
+                    Headers = HttpHeaders.FromScriptObject(headers),
                     ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
                 }, this);
             }
@@ -420,21 +409,23 @@ namespace Grayjay.Engine.Packages
             public object RequestWithBody(string method, string url, object body, ScriptObject headers = null, bool useByteResponses = false)
             {
                 if (body is string)
+                {
                     return _package.RequestInternal(new RequestDescriptor()
                     {
                         Method = method,
                         Url = url,
-                        Headers = headers.ToDictionary<string>(),
+                        Headers = HttpHeaders.FromScriptObject(headers),
                         Body = (string)body,
                         ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
                     }, this);
+                }
                 else if (body is ITypedArray tbody)
                 {
                     return _package.RequestInternal(new RequestDescriptor()
                     {
                         Method = method,
                         Url = url,
-                        Headers = headers.ToDictionary<string>(),
+                        Headers = HttpHeaders.FromScriptObject(headers),
                         Body = tbody.ArrayBuffer.GetBytes(),
                         ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
                     }, this);
@@ -445,7 +436,7 @@ namespace Grayjay.Engine.Packages
                     {
                         Method = method,
                         Url = url,
-                        Headers = headers.ToDictionary<string>(),
+                        Headers = HttpHeaders.FromScriptObject(headers),
                         Body = jabody.Select(x => (byte)((int)x)).ToArray(),
                         ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
                     }, this);
@@ -462,7 +453,7 @@ namespace Grayjay.Engine.Packages
                 {
                     Method = "GET",
                     Url = url,
-                    Headers = headers.ToDictionary<string>(),
+                    Headers = HttpHeaders.FromScriptObject(headers),
                     UseAuth = auth,
                     ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
                 }, this);
@@ -471,22 +462,24 @@ namespace Grayjay.Engine.Packages
             public object POST(string url, object body, IScriptObject headers, bool auth = false, bool useByteResponses = false)
             {
                 if (body is string)
+                {
                     return _package.RequestInternal(new RequestDescriptor()
                     {
                         Method = "POST",
                         Url = url,
-                        Headers = headers.ToDictionary<string>(),
+                        Headers = HttpHeaders.FromScriptObject(headers),
                         UseAuth = auth,
                         Body = (string)body,
                         ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
                     }, this);
+                }
                 else if (body is ITypedArray tbody)
                 {
                     return _package.RequestInternal(new RequestDescriptor()
                     {
                         Method = "POST",
                         Url = url,
-                        Headers = headers.ToDictionary<string>(),
+                        Headers = HttpHeaders.FromScriptObject(headers),
                         UseAuth = auth,
                         Body = tbody.ArrayBuffer.GetBytes(),
                         ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
@@ -498,7 +491,7 @@ namespace Grayjay.Engine.Packages
                     {
                         Method = "POST",
                         Url = url,
-                        Headers = headers.ToDictionary<string>(),
+                        Headers = HttpHeaders.FromScriptObject(headers),
                         UseAuth = auth,
                         Body = jabody.Select(x => (byte)((int)x)).ToArray(),
                         ReturnType = (useByteResponses) ? ReturnType.Bytes : ReturnType.String
@@ -583,7 +576,8 @@ namespace Grayjay.Engine.Packages
                         _isOpen = false;
                         socketObj.InvokeV8(_package._plugin.Config, "failure", ex.Message);
                     };
-                _socket = client.Socket(_url, _headers.ToDictionary<string>(), handlers);
+                //TODO: Some headers (set-cookie) will get lost this way
+                _socket = client.Socket(_url, new HttpHeaders(_headers.ToDictionary<string>()), handlers);
             }
 
             [ScriptMember("send")]

@@ -34,6 +34,8 @@ namespace Grayjay.Engine
         public string ScriptPublicKey { get; set; }
 
         public PluginCaptchaConfig Captcha { get; set; }
+        public PluginCaptchaDesktopConfig CaptchaDesktop { get; set; }
+        public PluginCaptchaConfig GetPlatformCaptcha() => CaptchaDesktop ?? Captcha;
         public PluginAuthConfig Authentication { get; set; }
         public PluginAuthDesktopConfig AuthenticationDesktop { get; set; }
         public PluginAuthConfig GetPlatformAuthentication() => AuthenticationDesktop ?? Authentication;
