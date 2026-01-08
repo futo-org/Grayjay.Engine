@@ -1235,6 +1235,30 @@ namespace Grayjay.Engine
             }
         }
 
+        private static Dictionary<string, string> ParseCookies(IEnumerable<string> headerValues)
+        {
+            var dict = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            foreach (var hv in headerValues)
+            {
+                foreach (var part in hv.Split(';'))
+                {
+                    var s = part.Trim();
+                    if (s.Length == 0) continue;
+
+                    var eq = s.IndexOf('=');
+                    if (eq <= 0) continue;
+
+                    var name = s.Substring(0, eq).Trim();
+                    var value = s.Substring(eq + 1).Trim();
+
+                    if (name.Length == 0) continue;
+                    dict[name] = value;
+                }
+            }
+
+            return dict;
+        }
 
         public override void BeforeRequest(HttpRequestMessage request)
         {
@@ -1262,25 +1286,18 @@ namespace Grayjay.Engine
                             cookiesToApply[cookie.Key] = cookie.Value;
                     }
 
-                    if (cookiesToApply?.Any() ?? false)
+                    if (cookiesToApply.Count > 0)
                     {
-                        var cookieString = string.Join("; ", cookiesToApply.Select(x => x.Key + "=" + x.Value));
+                        var existing = request.Headers.TryGetValues("Cookie", out var values)
+                            ? ParseCookies(values)
+                            : new Dictionary<string, string>(StringComparer.Ordinal);
 
-                        var existingCookies = (request.Headers.Contains("Cookie")) ? request.Headers.GetValues("Cookie") : null;
-                        if (existingCookies?.Any() ?? false)
-                        {
-                            request.Headers.Remove("Cookie");
-                            request.Headers.Add("Cookie", existingCookies.Concat(cookieString.Split(";")));
-                        }
-                        else
-                            request.Headers.Add("Cookie", cookieString);
-                        /*
-                        var existingCookies = request.Headers[HttpRequestHeader.Cookie];
-                        if (existingCookies?.Any() ?? false)
-                            request.Headers[HttpRequestHeader.Cookie] = existingCookies.Trim(';') + ";" + cookieString;
-                        else
-                            request.Headers[HttpRequestHeader.Cookie] = cookieString;
-                        */
+                        foreach (var kv in cookiesToApply)
+                            existing[kv.Key] = kv.Value;
+
+                        request.Headers.Remove("Cookie");
+                        var cookieString = string.Join("; ", existing.Select(kv => $"{kv.Key}={kv.Value}"));
+                        request.Headers.Add("Cookie", cookieString);
                     }
                 }
             }

@@ -13,7 +13,9 @@ namespace Grayjay.Engine
         public PluginAppSettings AppSettings { get; set; } = new PluginAppSettings();
 
         public string AuthEncrypted { get; private set; } = null;
+        private string _authEncryptedLast = null;
         public string CaptchaEncrypted { get; private set; } = null;
+        private string _captchaEncryptedLast = null;
 
         public List<string> Flags { get; set; }
 
@@ -72,7 +74,8 @@ namespace Grayjay.Engine
                 throw new InvalidOperationException("No encryption provider set");
             try
             {
-                return JsonSerializer.Deserialize<SourceCaptcha>(Encryption.Decrypt(CaptchaEncrypted));
+                var captcha = Encryption.Decrypt(CaptchaEncrypted);
+                return JsonSerializer.Deserialize<SourceCaptcha>(captcha);
             }
             catch(Exception ex)
             {
@@ -81,8 +84,9 @@ namespace Grayjay.Engine
             }
             finally
             {
-
-                OnCaptchaChanged?.Invoke();
+                if (_captchaEncryptedLast != CaptchaEncrypted)
+                    OnCaptchaChanged?.Invoke();
+                _captchaEncryptedLast = CaptchaEncrypted;
             }
         }
         public void SetCaptchaData(SourceCaptcha captcha)
