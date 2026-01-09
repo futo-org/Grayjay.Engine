@@ -171,10 +171,12 @@ namespace Grayjay.Engine
     {
         public Dictionary<string, Dictionary<string, string>> CookieMap { get; set; }
         public Dictionary<string, Dictionary<string, string>> Headers { get; set; }
+        public string? UserAgent { get; set; }
     }
     public class SourceCaptcha
     {
         public Dictionary<string, Dictionary<string, string>> CookieMap { get; set; }
         public Dictionary<string, Dictionary<string, string>> Headers { get; set; }
+        public string? UserAgent { get; set; }
     }
 }

@@ -32,6 +32,10 @@ namespace Grayjay.Engine.Packages
         public int buildSpecVersion => 2;
         [ScriptMember("buildPlatform")]
         public string buildPlatform => "desktop";
+        [ScriptMember("captchaUserAgent")]
+        public string? captchaUserAgent => _plugin.Descriptor.GetCaptchaData()?.UserAgent;
+        [ScriptMember("authUserAgent")]
+        public string? authUserAgent => _plugin.Descriptor.GetAuth()?.UserAgent;
 
         [ScriptMember("supportedFeatures")]
         public object supportedFeatures
