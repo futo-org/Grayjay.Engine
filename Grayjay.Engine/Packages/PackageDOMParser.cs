@@ -114,7 +114,7 @@ namespace Grayjay.Engine.Packages
         [ScriptMember("getAttribute")]
         public string GetAttribute(string name)
         {
-            return _node.Attributes[name]?.Value;
+            return HttpUtility.HtmlDecode(_node.Attributes[name]?.Value ?? "");
         }
         [ScriptMember("getElementById")]
         public DOMNode GetElementByID(string id)
