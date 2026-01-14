@@ -151,13 +151,13 @@ namespace Grayjay.Engine.Models.Video.Additions
     }
     public class Options : IModifierOptions
     {
-        [V8Property("applyAuthClient")]
+        [V8Property("applyAuthClient", optional: true)]
         public string ApplyAuthClient { get; set; }
-        [V8Property("applyCookieClient")]
+        [V8Property("applyCookieClient", optional: true)]
         public string ApplyCookieClient { get; set; }
-        [V8Property("applyOtherHeaders")]
+        [V8Property("applyOtherHeaders", optional: true)]
         public bool ApplyOtherHeaders { get; set; }
-        [V8Property("impersonateTarget")]
+        [V8Property("impersonateTarget", optional: true)]
         public string? ImpersonateTarget { get; set; }
     }
 }
