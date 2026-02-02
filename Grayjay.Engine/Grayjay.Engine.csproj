@@ -18,6 +18,7 @@
     <PackageReference Include="HtmlAgilityPack" Version="1.11.58" />
     <PackageReference Include="Microsoft.ClearScript.V8" Version="7.4.5" />
     <PackageReference Include="System.Text.Json" Version="9.0.0" />
+    <ProjectReference Include="..\..\JustCef\DotCef.csproj" />
   </ItemGroup>
 
   <ItemGroup>

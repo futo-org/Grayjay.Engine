@@ -344,7 +344,8 @@ namespace Grayjay.Engine
                     return new PackageDOMParser(this);
                 case "JSDOM":
                     return new PackageJSDOM(this);
-
+                case "Browser":
+                    return new PackageBrowser(this);
                 default:
                     if (allowNull)
                         return null;
