@@ -332,6 +332,9 @@ namespace Grayjay.Engine
 
         public Package GetPackage(string name, bool allowNull = false)
         {
+            var isOfficial = Config.IsOfficialAuthor();
+
+
             switch (name)
             {
                 case "Http":
@@ -345,7 +348,18 @@ namespace Grayjay.Engine
                 case "JSDOM":
                     return new PackageJSDOM(this);
                 case "Browser":
+#if !DEBUG
                     return new PackageBrowser(this);
+#else
+                    if (Config.IsOfficialAuthor())
+                        return new PackageBrowser(this);
+                    //else if (Config.ID == StateDeveloper.DEV_ID)
+                    //TODO
+                    if (allowNull)
+                        return null;
+                    throw new NotImplementedException($"Browser is only allowed for debug and official plugins due to security");
+#endif
+                    
                 default:
                     if (allowNull)
                         return null;
