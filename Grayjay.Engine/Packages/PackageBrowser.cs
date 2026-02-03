@@ -31,7 +31,7 @@ namespace Grayjay.Engine.Packages
             Directory.CreateDirectory(dir);
             s_userDataDir = dir;
 
-            return $"--headless --user-data-dir=\"{dir}\"";
+            return $"--user-data-dir=\"{dir}\"";
         }
 
         public static void ShutdownSharedProcess()
