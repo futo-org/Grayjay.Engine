@@ -3,6 +3,7 @@ using Microsoft.ClearScript;
 using Microsoft.ClearScript.V8;
 using System;
 using System.Collections.Concurrent;
+using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -17,6 +18,49 @@ namespace Grayjay.Engine.Packages
         private static readonly object s_procGate = new();
         private static DotCefProcess? s_process;
         private static bool s_processStarted;
+        private static string? s_userDataDir;
+
+        public static void PreInitializeSharedProcess()
+        {
+            _ = EnsureProcessStarted();
+        }
+
+        private static string BuildSharedProcessArgs()
+        {
+            var dir = Path.Combine(Path.GetTempPath(), "grayjay_cef_browser_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            s_userDataDir = dir;
+
+            return $"--headless --user-data-dir=\"{dir}\"";
+        }
+
+        public static void ShutdownSharedProcess()
+        {
+            DotCefProcess? proc;
+            string? dirToDelete;
+
+            lock (s_procGate)
+            {
+                proc = s_process;
+                dirToDelete = s_userDataDir;
+
+                s_process = null;
+                s_processStarted = false;
+                s_userDataDir = null;
+            }
+
+            try { proc?.Dispose(); } catch { /* ignore */ }
+
+            if (!string.IsNullOrWhiteSpace(dirToDelete))
+            {
+                try
+                {
+                    if (Directory.Exists(dirToDelete))
+                        Directory.Delete(dirToDelete, recursive: true);
+                }
+                catch { /* ignore */ }
+            }
+        }
 
         private static DotCefProcess EnsureProcessStarted()
         {
@@ -27,7 +71,8 @@ namespace Grayjay.Engine.Packages
 
                 // (Re)start process
                 s_process = new DotCefProcess();
-                s_process.Start();
+                //s_process.Start();
+                s_process.Start(BuildSharedProcessArgs());
                 s_process.WaitForReady();
                 s_processStarted = true;
 
@@ -58,8 +103,11 @@ namespace Grayjay.Engine.Packages
             engine.AddHostObject(VariableName, this);
         }
 
+        private int _disposed;
         public override void Dispose()
         {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                return;
             try { deinitialize(); } catch { }
         }
 
@@ -82,7 +130,7 @@ namespace Grayjay.Engine.Packages
                 minimumHeight: 240,
                 preferredWidth: 800,
                 preferredHeight: 600,
-                shown: true,
+                shown: false,
                 developerToolsEnabled: false,
                 proxyRequests: false,
                 modifyRequests: false,
