@@ -13,6 +13,7 @@ namespace Grayjay.Engine.Packages
     [NoDefaultScriptAccess]
     public class PackageJSDOM : Package
     {
+        public override string Name => "JSDOM";
         public override string VariableName => "packageJSDOM";
 
         public PackageJSDOM(GrayjayPlugin plugin) : base(plugin)

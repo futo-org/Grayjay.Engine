@@ -16,6 +16,7 @@ namespace Grayjay.Engine.Packages
     {
         public static DotCefProcess? Process;
 
+        public override string Name => "Browser";
         public override string VariableName => "browser";
 
         private readonly object _gate = new();
@@ -68,7 +69,7 @@ namespace Grayjay.Engine.Packages
                 minimumHeight: 240,
                 preferredWidth: 800,
                 preferredHeight: 600,
-                shown: false,
+                shown: true,
                 developerToolsEnabled: false,
                 proxyRequests: false,
                 modifyRequests: false,

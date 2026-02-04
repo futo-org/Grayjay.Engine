@@ -25,6 +25,7 @@ namespace Grayjay.Engine.Packages
     [NoDefaultScriptAccess]
     public class PackageHttp: Package
     {
+        public override string Name => "Http";
         public override string VariableName => "http";
 
         private static string[] WHITELISTED_RESPONSE_HEADERS = new string[]

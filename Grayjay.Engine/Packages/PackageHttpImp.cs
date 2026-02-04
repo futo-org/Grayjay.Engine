@@ -23,6 +23,7 @@ namespace Grayjay.Engine.Packages
     [NoDefaultScriptAccess]
     public sealed class PackageHttpImp : Package, IDisposable
     {
+        public override string Name => "HttpImp";
         public override string VariableName => "httpimp";
 
         private static readonly string[] WHITELISTED_RESPONSE_HEADERS = new[]

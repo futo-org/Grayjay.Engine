@@ -6,6 +6,7 @@ using Microsoft.ClearScript;
 using Microsoft.ClearScript.V8;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Text;
@@ -18,6 +19,7 @@ namespace Grayjay.Engine.Packages
     {
         public static int AppVersion { get; set; } = 13;
 
+        public override string Name => "Bridge";
         public override string VariableName => "bridge";
 
         private Action<string> _onLog;
@@ -64,6 +66,12 @@ namespace Grayjay.Engine.Packages
         public override void Dispose()
         {
 
+        }
+
+        [ScriptMember]
+        public bool hasPackage(string package)
+        {
+            return _plugin.GetPackages().Any(x => x.Name == package);
         }
 
 

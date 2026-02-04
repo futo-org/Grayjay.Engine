@@ -82,6 +82,8 @@ namespace Grayjay.Engine
 
         private List<Package> _packages = new List<Package>();
 
+        public virtual bool IsDevPlugin { get; } = false;
+
         public PlatformClientCapabilities Capabilities { get; private set; } = new PlatformClientCapabilities();
 
         public Options _options;
@@ -146,6 +148,11 @@ namespace Grayjay.Engine
             HttpClientAuth = clientAuth ?? new PluginHttpClient(this, _auth, _captcha);
         }
 
+
+        public List<Package> GetPackages()
+        {
+            return _packages;
+        }
 
         public GrayjayTestSystem GetTestSystem()
         {
@@ -352,6 +359,8 @@ namespace Grayjay.Engine
                     return new PackageBrowser(this);
 #else
                     if (Config.IsOfficialAuthor())
+                        return new PackageBrowser(this);
+                    if (this.IsDevPlugin)
                         return new PackageBrowser(this);
                     //else if (Config.ID == StateDeveloper.DEV_ID)
                     //TODO
