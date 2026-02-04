@@ -355,15 +355,13 @@ namespace Grayjay.Engine
                 case "JSDOM":
                     return new PackageJSDOM(this);
                 case "Browser":
-#if !DEBUG
+#if DEBUG
                     return new PackageBrowser(this);
 #else
                     if (Config.IsOfficialAuthor())
                         return new PackageBrowser(this);
                     if (this.IsDevPlugin)
                         return new PackageBrowser(this);
-                    //else if (Config.ID == StateDeveloper.DEV_ID)
-                    //TODO
                     if (allowNull)
                         return null;
                     throw new NotImplementedException($"Browser is only allowed for debug and official plugins due to security");

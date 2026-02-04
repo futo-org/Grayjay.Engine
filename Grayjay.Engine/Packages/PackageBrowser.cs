@@ -3,6 +3,7 @@ using Microsoft.ClearScript;
 using Microsoft.ClearScript.V8;
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -32,6 +33,11 @@ namespace Grayjay.Engine.Packages
         private V8ScriptEngine? _engine;
 
         private bool _interopInstalled;
+        private long _loadSeq;
+        private long _activeLoadSeq;
+        private long _activeLoadStartTs;
+        private string? _activeLoadUrl;
+
 
         public PackageBrowser(GrayjayPlugin plugin) : base(plugin) { }
 
@@ -76,20 +82,32 @@ namespace Grayjay.Engine.Packages
                 logConsole: false
             ).GetAwaiter().GetResult();
 
-            win.OnLoadStart += url =>
-            {
-                _currentUrl = url;
-                ResetLoadTcs();
-            };
             win.OnLoadEnd += url =>
             {
+                bool isActiveUrl = _activeLoadUrl != null && url != null && _activeLoadUrl.TrimEnd('/') == url.TrimEnd('/');
+                if (!isActiveUrl)
+                {
+                    Logger.Info<PackageBrowser>($"OnLoadEnd Ignored (url={url}, _activeLoadUrl={_activeLoadUrl})");
+                    return;
+                }
+
                 _currentUrl = url;
-                CompleteLoadTcs(success: true);
+                Logger.Info<PackageBrowser>($"OnLoadEnd (url={url})");
+                CompleteLoadTcs(success: true, reason: "OnLoadEnd", url: url);
             };
+
             win.OnLoadError += (code, text, failedUrl) =>
             {
+                bool isActiveUrl = _activeLoadUrl != null && failedUrl != null && _activeLoadUrl.TrimEnd('/') == failedUrl.TrimEnd('/');
+                if (!isActiveUrl)
+                {
+                    Logger.Info<PackageBrowser>($"OnLoadError Ignored (failedUrl={failedUrl}, _activeLoadUrl={_activeLoadUrl})");
+                    return;
+                }
+
                 _currentUrl = failedUrl;
-                CompleteLoadTcs(success: false);
+                Logger.Warning<PackageBrowser>($"OnLoadError (code={code}, text={text}, url={failedUrl})");
+                CompleteLoadTcs(success: false, reason: $"OnLoadError:{code}", url: failedUrl);
             };
 
             win.OnDevToolsEvent += (method, payload) => OnDevToolsEvent(method, payload);
@@ -113,6 +131,8 @@ namespace Grayjay.Engine.Packages
                 w = _window;
                 _window = null;
                 _interopInstalled = false;
+                _loadTcs?.TrySetResult(false);
+                Logger.Info<PackageBrowser>("deinitialize() completed pending LoadTCS with false");
                 _loadTcs = null;
             }
 
@@ -146,19 +166,43 @@ namespace Grayjay.Engine.Packages
         public bool waitTillLoaded(int timeout = 1000)
         {
             TaskCompletionSource<bool>? tcs;
-            lock (_gate) tcs = _loadTcs;
+            long seq;
+            string? url;
+            long started;
+
+            lock (_gate)
+            {
+                tcs = _loadTcs;
+                seq = _activeLoadSeq;
+                url = _activeLoadUrl;
+                started = _activeLoadStartTs;
+            }
 
             if (tcs == null)
+            {
+                Logger.Info<PackageBrowser>($"waitTillLoaded() no TCS -> true)");
                 return true;
+            }
+
+            var ageMs = started != 0 ? (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency : -1;
+            Logger.Info<PackageBrowser>($"waitTillLoaded() wait begin (seq={seq}, url={url ?? "null"}, timeoutMs={timeout}, ageMs={ageMs:F1})");
 
             try
             {
-                if (tcs.Task.Wait(timeout))
-                    return tcs.Task.Result;
-                return false;
+                var completed = tcs.Task.Wait(timeout);
+                if (!completed)
+                {
+                    Logger.Warning<PackageBrowser>($"waitTillLoaded() timeout (seq={seq}, url={url ?? "null"}, timeoutMs={timeout})");
+                    return false;
+                }
+
+                var result = tcs.Task.Result;
+                Logger.Info<PackageBrowser>($"waitTillLoaded() wait end (seq={seq}, result={result}, url={url ?? "null"})");
+                return result;
             }
-            catch
+            catch (Exception ex)
             {
+                Logger.Warning<PackageBrowser>($"waitTillLoaded() exception (seq={seq}, url={url ?? "null"}, ex={ex.GetType().Name}:{ex.Message})");
                 return false;
             }
         }
@@ -166,18 +210,24 @@ namespace Grayjay.Engine.Packages
         [ScriptMember]
         public void load(string url)
         {
+            Logger.Info<PackageBrowser>($"load() begin (url={url})");
             _currentUrl = url;
-            ResetLoadTcs();
+            ResetLoadTcs("load start", url);
             WindowOrThrow().LoadUrlAsync(url).GetAwaiter().GetResult();
+            Logger.Info<PackageBrowser>($"load() end (url={url})");
         }
 
         [ScriptMember]
         public void run(string js, string? callbackId = null, ScriptObject? callback = null)
         {
+            Logger.Info<PackageBrowser>($"run() waiting)");
             waitTillLoaded();
 
             if (!string.IsNullOrEmpty(callbackId) && callback != null)
+            {
+                Logger.Info<PackageBrowser>($"run() with callback, set {callbackId})");
                 _callbacks[callbackId] = callback;
+            }
 
             _ = ExecuteDevToolsBlocking("Runtime.evaluate", new
             {
@@ -190,28 +240,64 @@ namespace Grayjay.Engine.Packages
         [ScriptMember]
         public void runWithReturn(string js, ScriptObject? callback = null)
         {
+            Logger.Info<PackageBrowser>($"runWithReturn() waiting");
             waitTillLoaded();
+
+            Logger.Info<PackageBrowser>($"runWithReturn() with callback, before");
 
             var result = EvaluateWithReturnBlocking(js);
 
             if (callback != null)
-                InvokeOnV8(() => callback.Invoke(false, result));
-        }
-
-        private void ResetLoadTcs()
-        {
-            lock (_gate)
             {
-                _loadTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                Logger.Info<PackageBrowser>($"runWithReturn() with callback, invoke");
+                InvokeOnV8(() => callback.Invoke(false, result));
             }
         }
 
-        private void CompleteLoadTcs(bool success)
+        private void ResetLoadTcs(string reason, string? url)
+        {
+            TaskCompletionSource<bool>? oldTcs;
+            long oldSeq;
+            long newSeq = Interlocked.Increment(ref _loadSeq);
+
+            lock (_gate)
+            {
+                oldTcs = _loadTcs;
+                oldSeq = _activeLoadSeq;
+
+                _activeLoadSeq = newSeq;
+                _activeLoadStartTs = Stopwatch.GetTimestamp();
+                _activeLoadUrl = url;
+
+                _loadTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            oldTcs?.TrySetResult(false);
+
+            Logger.Info<PackageBrowser>($"LoadTCS reset (reason={reason}, newSeq={newSeq}, oldSeq={oldSeq}, url={url ?? "null"})");
+        }
+
+
+        private void CompleteLoadTcs(bool success, string reason, string? url)
         {
             TaskCompletionSource<bool>? tcs;
-            lock (_gate) tcs = _loadTcs;
-            tcs?.TrySetResult(success);
+            long seq;
+            long started;
+            string? activeUrl;
+
+            lock (_gate)
+            {
+                tcs = _loadTcs;
+                seq = _activeLoadSeq;
+                started = _activeLoadStartTs;
+                activeUrl = _activeLoadUrl;
+            }
+
+            var elapsedMs = started != 0 ? (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency : -1;
+            var set = tcs?.TrySetResult(success) ?? false;
+            Logger.Info<PackageBrowser>($"LoadTCS complete (seq={seq}, set={set}, success={success}, reason={reason}, eventUrl={url ?? "null"}, activeUrl={activeUrl ?? "null"}, elapsedMs={elapsedMs:F1})");
         }
+
 
         private void EnsureInteropInstalledBlocking()
         {
@@ -308,21 +394,33 @@ namespace Grayjay.Engine.Packages
         {
             try
             {
+                Logger.Info<PackageBrowser>($"HandleGJCallback(): " + payload);
+
                 using var doc = JsonDocument.Parse(payload);
                 var root = doc.RootElement;
 
                 var id = root.GetProperty("id").GetString();
                 var result = root.GetProperty("result").GetString();
 
+                Logger.Info<PackageBrowser>($"HandleGJCallback(id = {id}, result = {result})");
+
                 if (string.IsNullOrEmpty(id))
+                {
+                    Logger.Warning<PackageBrowser>($"HandleGJCallback id must be set (id = {id})");
                     return;
+                }
 
                 if (_callbacks.TryRemove(id, out var cb))
+                {
+                    Logger.Info<PackageBrowser>($"HandleGJCallback invoke result (id = {id}, result = {result})");
                     InvokeOnV8(() => cb.Invoke(false, result));
+                }
+                else
+                    Logger.Warning<PackageBrowser>($"HandleGJCallback could not find callback matching (id = {id})");
             }
-            catch
+            catch (Exception e)
             {
-                // ignore malformed callback payloads
+                Logger.Warning<PackageBrowser>($"HandleGJCallback ignored malformed payload", e);
             }
         }
 
