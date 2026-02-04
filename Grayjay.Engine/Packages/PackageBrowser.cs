@@ -69,7 +69,7 @@ namespace Grayjay.Engine.Packages
                 minimumHeight: 240,
                 preferredWidth: 800,
                 preferredHeight: 600,
-                shown: true,
+                shown: false,
                 developerToolsEnabled: false,
                 proxyRequests: false,
                 modifyRequests: false,
