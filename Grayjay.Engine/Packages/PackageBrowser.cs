@@ -81,6 +81,7 @@ namespace Grayjay.Engine.Packages
                 modifyRequests: false,
                 logConsole: false
             ).GetAwaiter().GetResult();
+            win.HideAsync().GetAwaiter().GetResult();
 
             win.OnLoadEnd += url =>
             {
