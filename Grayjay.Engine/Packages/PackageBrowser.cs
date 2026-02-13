@@ -37,7 +37,7 @@ namespace Grayjay.Engine.Packages
         private long _activeLoadSeq;
         private long _activeLoadStartTs;
         private string? _activeLoadUrl;
-
+        private readonly ConcurrentDictionary<string, string> _pageLoadScripts = new();
 
         public PackageBrowser(GrayjayPlugin plugin) : base(plugin) { }
 
@@ -82,6 +82,7 @@ namespace Grayjay.Engine.Packages
                 logConsole: false
             ).GetAwaiter().GetResult();
             win.HideAsync().GetAwaiter().GetResult();
+            //win.SetDevelopmentToolsVisibleAsync(true).GetAwaiter().GetResult();
 
             win.OnLoadEnd += url =>
             {
@@ -138,6 +139,7 @@ namespace Grayjay.Engine.Packages
             }
 
             _callbacks.Clear();
+            _pageLoadScripts.Clear();
 
             if (w != null)
             {
@@ -479,6 +481,79 @@ namespace Grayjay.Engine.Packages
             }
 
             action();
+        }
+
+        [ScriptMember]
+        public string addScriptOnLoad(string js)
+        {
+            if (string.IsNullOrWhiteSpace(js))
+                throw new ArgumentException("Script must be non-empty.", nameof(js));
+
+            EnsureInteropInstalledBlocking();
+            var raw = ExecuteDevToolsBlocking("Page.addScriptToEvaluateOnNewDocument", new
+            {
+                source = js
+            });
+
+            using var doc = JsonDocument.Parse(raw);
+            if (!doc.RootElement.TryGetProperty("identifier", out var idEl))
+                throw new InvalidOperationException("CDP did not return a script identifier.");
+
+            var id = idEl.GetString();
+            if (string.IsNullOrWhiteSpace(id))
+                throw new InvalidOperationException("CDP returned an empty script identifier.");
+
+            _pageLoadScripts[id] = js;
+            Logger.Info<PackageBrowser>($"addScriptOnLoad() registered (id={id})");
+            return id;
+        }
+
+        [ScriptMember]
+        public bool removeScriptOnLoad(string identifier)
+        {
+            if (string.IsNullOrWhiteSpace(identifier))
+                return false;
+
+            try
+            {
+                EnsureInteropInstalledBlocking();
+
+                ExecuteDevToolsBlocking("Page.removeScriptToEvaluateOnNewDocument", new
+                {
+                    identifier
+                });
+
+                _pageLoadScripts.TryRemove(identifier, out _);
+                Logger.Info<PackageBrowser>($"removeScriptOnLoad() removed (id={identifier})");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning<PackageBrowser>($"removeScriptOnLoad() failed (id={identifier})", ex);
+                return false;
+            }
+        }
+
+        [ScriptMember]
+        public void clearScriptsOnLoad()
+        {
+            EnsureInteropInstalledBlocking();
+
+            foreach (var id in _pageLoadScripts.Keys)
+            {
+                try
+                {
+                    ExecuteDevToolsBlocking("Page.removeScriptToEvaluateOnNewDocument", new { identifier = id });
+                }
+                catch
+                {
+                    // ignore
+                }
+
+                _pageLoadScripts.TryRemove(id, out _);
+            }
+
+            Logger.Info<PackageBrowser>("clearScriptsOnLoad() cleared");
         }
     }
 }
