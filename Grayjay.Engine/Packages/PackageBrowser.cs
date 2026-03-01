@@ -1,4 +1,4 @@
-using DotCef;
+using JustCef;
 using Microsoft.ClearScript;
 using Microsoft.ClearScript.V8;
 using System;
@@ -15,14 +15,14 @@ namespace Grayjay.Engine.Packages
     [NoDefaultScriptAccess]
     public sealed class PackageBrowser : Package
     {
-        public static DotCefProcess? Process;
+        public static JustCefProcess? Process;
 
         public override string Name => "Browser";
         public override string VariableName => "browser";
 
         private readonly object _gate = new();
 
-        private DotCefWindow? _window;
+        private JustCefWindow? _window;
         private volatile string? _currentUrl;
 
         private TaskCompletionSource<bool>? _loadTcs;
@@ -56,7 +56,7 @@ namespace Grayjay.Engine.Packages
             try { deinitialize(); } catch { }
         }
 
-        private DotCefWindow WindowOrThrow()
+        private JustCefWindow WindowOrThrow()
             => _window ?? throw new InvalidOperationException("Browser not initialized. Call browser.initialize().");
 
         [ScriptMember]
@@ -127,7 +127,7 @@ namespace Grayjay.Engine.Packages
         [ScriptMember]
         public void deinitialize()
         {
-            DotCefWindow? w;
+            JustCefWindow? w;
             lock (_gate)
             {
                 w = _window;
@@ -304,7 +304,7 @@ namespace Grayjay.Engine.Packages
 
         private void EnsureInteropInstalledBlocking()
         {
-            DotCefWindow w;
+            JustCefWindow w;
             lock (_gate)
             {
                 if (_interopInstalled)
