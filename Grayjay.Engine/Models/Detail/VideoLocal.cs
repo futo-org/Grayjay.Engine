@@ -86,6 +86,17 @@ namespace Grayjay.Engine.Models.Detail
                     Logger.Error<VideoLocal>($"Failed to delete download", ex);
                 }
             }
+            foreach (var subtitle in SubtitleSources)
+            {
+                try
+                {
+                    File.Delete(subtitle.FilePath);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error<VideoLocal>($"Failed to delete download", ex);
+                }
+            }
         }
     }
 }
