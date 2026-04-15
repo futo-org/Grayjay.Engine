@@ -25,18 +25,12 @@ namespace Grayjay.Engine.Packages
         private JustCefWindow? _window;
         private volatile string? _currentUrl;
 
-        private TaskCompletionSource<bool>? _loadTcs;
-
         private readonly ConcurrentDictionary<string, ScriptObject> _callbacks = new();
 
         private SynchronizationContext? _v8SyncContext;
         private V8ScriptEngine? _engine;
 
         private bool _interopInstalled;
-        private long _loadSeq;
-        private long _activeLoadSeq;
-        private long _activeLoadStartTs;
-        private string? _activeLoadUrl;
         private readonly ConcurrentDictionary<string, string> _pageLoadScripts = new();
 
         public PackageBrowser(GrayjayPlugin plugin) : base(plugin) { }
@@ -84,32 +78,28 @@ namespace Grayjay.Engine.Packages
             win.HideAsync().GetAwaiter().GetResult();
             //win.SetDevelopmentToolsVisibleAsync(true).GetAwaiter().GetResult();
 
-            win.OnLoadEnd += url =>
+            win.OnFrameLoadEnd += info =>
             {
-                bool isActiveUrl = _activeLoadUrl != null && url != null && _activeLoadUrl.TrimEnd('/') == url.TrimEnd('/');
-                if (!isActiveUrl)
-                {
-                    Logger.Info<PackageBrowser>($"OnLoadEnd Ignored (url={url}, _activeLoadUrl={_activeLoadUrl})");
+                if (!info.IsMainFrame)
                     return;
-                }
 
-                _currentUrl = url;
-                Logger.Info<PackageBrowser>($"OnLoadEnd (url={url})");
-                CompleteLoadTcs(success: true, reason: "OnLoadEnd", url: url);
+                _currentUrl = info.Url;
+                Logger.Info<PackageBrowser>($"OnFrameLoadEnd (url={info.Url}, httpStatusCode={info.HttpStatusCode})");
             };
 
-            win.OnLoadError += (code, text, failedUrl) =>
+            win.OnFrameLoadError += info =>
             {
-                bool isActiveUrl = _activeLoadUrl != null && failedUrl != null && _activeLoadUrl.TrimEnd('/') == failedUrl.TrimEnd('/');
-                if (!isActiveUrl)
+                if (!info.IsMainFrame)
+                    return;
+
+                if (info.ErrorCode == -3)
                 {
-                    Logger.Info<PackageBrowser>($"OnLoadError Ignored (failedUrl={failedUrl}, _activeLoadUrl={_activeLoadUrl})");
+                    Logger.Info<PackageBrowser>($"OnFrameLoadError ignored ERR_ABORTED (url={info.FailedUrl})");
                     return;
                 }
 
-                _currentUrl = failedUrl;
-                Logger.Warning<PackageBrowser>($"OnLoadError (code={code}, text={text}, url={failedUrl})");
-                CompleteLoadTcs(success: false, reason: $"OnLoadError:{code}", url: failedUrl);
+                _currentUrl = info.FailedUrl;
+                Logger.Warning<PackageBrowser>($"OnFrameLoadError (code={info.ErrorCode}, text={info.ErrorText}, url={info.FailedUrl})");
             };
 
             win.OnDevToolsEvent += (method, payload) => OnDevToolsEvent(method, payload);
@@ -118,7 +108,6 @@ namespace Grayjay.Engine.Packages
             {
                 _window = win;
                 _interopInstalled = false;
-                _loadTcs ??= new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             }
 
             EnsureInteropInstalledBlocking();
@@ -133,9 +122,6 @@ namespace Grayjay.Engine.Packages
                 w = _window;
                 _window = null;
                 _interopInstalled = false;
-                _loadTcs?.TrySetResult(false);
-                Logger.Info<PackageBrowser>("deinitialize() completed pending LoadTCS with false");
-                _loadTcs = null;
             }
 
             _callbacks.Clear();
@@ -168,44 +154,38 @@ namespace Grayjay.Engine.Packages
         [ScriptMember]
         public bool waitTillLoaded(int timeout = 1000)
         {
-            TaskCompletionSource<bool>? tcs;
-            long seq;
-            string? url;
-            long started;
-
+            JustCefWindow? w;
             lock (_gate)
-            {
-                tcs = _loadTcs;
-                seq = _activeLoadSeq;
-                url = _activeLoadUrl;
-                started = _activeLoadStartTs;
-            }
+                w = _window;
 
-            if (tcs == null)
+            if (w == null)
             {
-                Logger.Info<PackageBrowser>($"waitTillLoaded() no TCS -> true)");
+                Logger.Info<PackageBrowser>("waitTillLoaded() no window -> true");
                 return true;
             }
 
-            var ageMs = started != 0 ? (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency : -1;
-            Logger.Info<PackageBrowser>($"waitTillLoaded() wait begin (seq={seq}, url={url ?? "null"}, timeoutMs={timeout}, ageMs={ageMs:F1})");
+            Logger.Info<PackageBrowser>($"waitTillLoaded() wait begin (timeoutMs={timeout})");
 
             try
             {
-                var completed = tcs.Task.Wait(timeout);
-                if (!completed)
-                {
-                    Logger.Warning<PackageBrowser>($"waitTillLoaded() timeout (seq={seq}, url={url ?? "null"}, timeoutMs={timeout})");
-                    return false;
-                }
+                using var cts = timeout > 0
+                    ? new CancellationTokenSource(timeout)
+                    : new CancellationTokenSource();
 
-                var result = tcs.Task.Result;
-                Logger.Info<PackageBrowser>($"waitTillLoaded() wait end (seq={seq}, result={result}, url={url ?? "null"})");
-                return result;
+                w.WaitUntilLoadedAsync(cts.Token).GetAwaiter().GetResult();
+
+                Logger.Info<PackageBrowser>("waitTillLoaded() wait end (result=true)");
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                Logger.Warning<PackageBrowser>($"waitTillLoaded() timeout (timeoutMs={timeout})");
+                return false;
             }
             catch (Exception ex)
             {
-                Logger.Warning<PackageBrowser>($"waitTillLoaded() exception (seq={seq}, url={url ?? "null"}, ex={ex.GetType().Name}:{ex.Message})");
+                Logger.Warning<PackageBrowser>(
+                    $"waitTillLoaded() exception (ex={ex.GetType().Name}:{ex.Message})");
                 return false;
             }
         }
@@ -215,7 +195,6 @@ namespace Grayjay.Engine.Packages
         {
             Logger.Info<PackageBrowser>($"load() begin (url={url})");
             _currentUrl = url;
-            ResetLoadTcs("load start", url);
             WindowOrThrow().LoadUrlAsync(url).GetAwaiter().GetResult();
             Logger.Info<PackageBrowser>($"load() end (url={url})");
         }
@@ -256,51 +235,6 @@ namespace Grayjay.Engine.Packages
                 InvokeOnV8(() => callback.Invoke(false, result));
             }
         }
-
-        private void ResetLoadTcs(string reason, string? url)
-        {
-            TaskCompletionSource<bool>? oldTcs;
-            long oldSeq;
-            long newSeq = Interlocked.Increment(ref _loadSeq);
-
-            lock (_gate)
-            {
-                oldTcs = _loadTcs;
-                oldSeq = _activeLoadSeq;
-
-                _activeLoadSeq = newSeq;
-                _activeLoadStartTs = Stopwatch.GetTimestamp();
-                _activeLoadUrl = url;
-
-                _loadTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            }
-
-            oldTcs?.TrySetResult(false);
-
-            Logger.Info<PackageBrowser>($"LoadTCS reset (reason={reason}, newSeq={newSeq}, oldSeq={oldSeq}, url={url ?? "null"})");
-        }
-
-
-        private void CompleteLoadTcs(bool success, string reason, string? url)
-        {
-            TaskCompletionSource<bool>? tcs;
-            long seq;
-            long started;
-            string? activeUrl;
-
-            lock (_gate)
-            {
-                tcs = _loadTcs;
-                seq = _activeLoadSeq;
-                started = _activeLoadStartTs;
-                activeUrl = _activeLoadUrl;
-            }
-
-            var elapsedMs = started != 0 ? (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency : -1;
-            var set = tcs?.TrySetResult(success) ?? false;
-            Logger.Info<PackageBrowser>($"LoadTCS complete (seq={seq}, set={set}, success={success}, reason={reason}, eventUrl={url ?? "null"}, activeUrl={activeUrl ?? "null"}, elapsedMs={elapsedMs:F1})");
-        }
-
 
         private void EnsureInteropInstalledBlocking()
         {
