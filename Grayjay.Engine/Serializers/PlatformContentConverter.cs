@@ -35,6 +35,7 @@ namespace Grayjay.Engine.Serializers
             PlatformContent content = typeDiscriminator switch
             {
                 ContentType.MEDIA => JsonSerializer.Deserialize<PlatformVideo>(ref reader, options)!,
+                ContentType.ARTICLE => JsonSerializer.Deserialize<PlatformArticle>(ref reader, options)!,
                 _ => JsonSerializer.Deserialize<PlatformContent>(ref reader, options)
             };
             return content;

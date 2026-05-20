@@ -7,8 +7,8 @@ namespace Grayjay.Engine.Models.General
 {
     public class Thumbnails
     {
-        [V8Property("sources")]
-        public Thumbnail[] Sources { get; set; }
+        [V8Property("sources", true)]
+        public Thumbnail[] Sources { get; set; } = Array.Empty<Thumbnail>();
     }
 
     public class Thumbnail
