@@ -291,15 +291,23 @@ class PlatformPostDetails extends PlatformPost {
     }
 }
 
-class PlatformArticleDetails extends PlatformContent {
+class PlatformArticle extends PlatformContent {
     constructor(obj) {
         super(obj, 3);
         obj = obj ?? {};
-        this.plugin_type = "PlatformArticleDetails";
-        this.rating = obj.rating ?? new RatingLikes(-1);
+        this.plugin_type = "PlatformArticle";
         this.summary = obj.summary ?? "";
+        this.thumbnails = obj.thumbnails ?? null;
+    }
+}
+
+class PlatformArticleDetails extends PlatformArticle {
+    constructor(obj) {
+        super(obj);
+        obj = obj ?? {};
+        this.plugin_type = "PlatformArticleDetails";
+        this.rating = obj.rating ?? new RatingLikes(0);
         this.segments = obj.segments ?? [];
-        this.thumbnails = obj.thumbnails ?? new Thumbnails([]);
     }
 }
 class ArticleSegment {
@@ -310,14 +318,22 @@ class ArticleSegment {
 class ArticleTextSegment extends ArticleSegment {
     constructor(content, textType) {
         super(1);
-        this.textType = textType;
-        this.content = content;
+        this.textType = textType ?? 0;
+        this.content = content ?? "";
     }
 }
 class ArticleImagesSegment extends ArticleSegment {
-    constructor(images) {
+    constructor(images, caption) {
         super(2);
-        this.images = images;
+        this.images = images ?? [];
+        this.caption = caption ?? "";
+    }
+}
+class ArticleHeaderSegment extends ArticleSegment {
+    constructor(content, level) {
+        super(3);
+        this.content = content ?? "";
+        this.level = level ?? 1;
     }
 }
 class ArticleNestedSegment extends ArticleSegment {

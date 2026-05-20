@@ -30,6 +30,8 @@ namespace Grayjay.Engine.Models.Detail
                     return typeof(PlatformVideoDetails);
                 case "PlatformPostDetails":
                     return typeof(PlatformPostDetails);
+                case "PlatformArticleDetails":
+                    return typeof(PlatformArticleDetails);
                 default:
                     throw new NotImplementedException($"{type} not implemented yet");
             }

@@ -22,9 +22,11 @@ namespace Grayjay.Engine.Models.Feed
     [JsonDerivedType(typeof(PlatformPlaylist))]
     [JsonDerivedType(typeof(PlatformAuthorContent))]
     [JsonDerivedType(typeof(PlatformPost))]
+    [JsonDerivedType(typeof(PlatformArticle))]
     [JsonDerivedType(typeof(PlatformNestedMedia))]
     [JsonDerivedType(typeof(PlatformLockedContent))]
     [JsonDerivedType(typeof(PlatformPostDetails))]
+    [JsonDerivedType(typeof(PlatformArticleDetails))]
     [JsonDerivedType(typeof(PlatformVideoDetails))]
     public class PlatformContent: IV8Polymorphic
     {
@@ -80,6 +82,10 @@ namespace Grayjay.Engine.Models.Feed
                     if (pluginType == "PlatformPostDetails")
                         return typeof(PlatformPostDetails);
                     return typeof(PlatformPost);
+                case 3:
+                    if (pluginType == "PlatformArticleDetails")
+                        return typeof(PlatformArticleDetails);
+                    return typeof(PlatformArticle);
                 case 11:
                     return typeof(PlatformNestedMedia);
                 case 60:
