@@ -73,7 +73,10 @@ namespace Grayjay.Engine.Models.Video.Additions
             Url = obj.GetOrDefault<string>(plugin, "url", nameof(Request), null);
             //TODO: This needs to be List<KeyValuePair<string, string>>
             var headers = obj.GetOrDefault<Dictionary<string, string>>(plugin, "headers", nameof(Request), null);
-            Headers = headers != null ? new HttpHeaders(headers) : new HttpHeaders();
+            //Leave this null (not an empty HttpHeaders) when the modifier declares no headers, so
+            //Modify()'s "Headers ?? originalHeaders" falls back to the real request's headers
+            //(Host/User-Agent/etc.) instead of overriding them with an empty set.
+            Headers = headers != null ? new HttpHeaders(headers) : null;
             Options = obj.GetOrDefault<Options>(plugin, "options", nameof(Request), null);
             if (Options == null)
                 Options = new Options()
@@ -107,7 +110,7 @@ namespace Grayjay.Engine.Models.Video.Additions
             {
                 if (Options?.ApplyOtherHeaders ?? false)
                 {
-                    var headersToSet = new HttpHeaders(Headers);
+                    var headersToSet = Headers != null ? new HttpHeaders(Headers) : new HttpHeaders();
                     if (originalHeaders != null)
                     {
                         foreach (var header in originalHeaders)
@@ -127,7 +130,7 @@ namespace Grayjay.Engine.Models.Video.Additions
                     var client = plugin.GetHttpClientById(Options.ApplyCookieClient);
                     if (client != null)
                     {
-                        var toModifyHeaders = new HttpHeaders(Headers);
+                        var toModifyHeaders = Headers != null ? new HttpHeaders(Headers) : new HttpHeaders();
                         client.ApplyHeaders(new Uri(Url), toModifyHeaders, false, true);
                         Headers = toModifyHeaders;
                     }
