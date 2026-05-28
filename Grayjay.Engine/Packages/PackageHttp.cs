@@ -333,10 +333,9 @@ namespace Grayjay.Engine.Packages
             private PluginHttpClient _client;
 
             private HttpHeaders _defaultHeaders = new HttpHeaders();
-            private string _clientId = null;
 
             [ScriptMember("clientId")]
-            public string ClientID { get; }
+            public string ClientID => _client.ClientID;
 
             internal PluginHttpClient Client => _client;
 
@@ -344,7 +343,6 @@ namespace Grayjay.Engine.Packages
             {
                 _package = package;
                 _client = client;
-                _clientId = client.ClientID;
             }
 
 
