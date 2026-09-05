@@ -435,6 +435,7 @@ namespace Grayjay.Engine.Packages
                     Method = method,
                     Url = url,
                     Headers = new HttpHeaders(map),
+                    UseAuth = this.UseAuth,
                     ReturnType = useByteResponses ? ReturnType.Bytes : ReturnType.String
                 };
 
@@ -460,6 +461,7 @@ namespace Grayjay.Engine.Packages
                     Url = url,
                     Headers = new HttpHeaders(map),
                     Body = body,
+                    UseAuth = this.UseAuth,
                     ReturnType = useByteResponses ? ReturnType.Bytes : ReturnType.String
                 };
 
