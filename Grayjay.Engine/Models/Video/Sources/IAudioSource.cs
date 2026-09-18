@@ -29,10 +29,14 @@ namespace Grayjay.Engine.Models.Video.Sources
             {
                 case "AudioUrlSource":
                     return typeof(AudioUrlSource);
+                case "AudioUrlWidevineSource":
+                    return typeof(AudioUrlWidevineSource);
                 case "AudioUrlRangeSource":
                     return typeof(AudioUrlRangeSource);
                 case "HLSSource":
                     return typeof(HLSManifestAudioSource);
+                case "HLSWidevineSource":
+                    return typeof(HLSManifestWidevineAudioSource);
                 case "DashRawAudioSource":
                     return typeof(DashManifestRawAudioSource);
                 case "AudioSourceDescription":

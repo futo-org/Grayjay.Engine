@@ -23,6 +23,8 @@ namespace Grayjay.Engine.Models.Video.Sources
 
         public bool HasRequestExecutor { get; private set; }
 
+        public bool HasLicenseRequestExecutor { get; private set; }
+
         public virtual bool CanSerialize { get; } = true;
 
         public JSSource()
@@ -31,6 +33,7 @@ namespace Grayjay.Engine.Models.Video.Sources
             _plugin = null;
             HasRequestModifier = false;
             HasRequestExecutor = false;
+            HasLicenseRequestExecutor = false;
         }
         public JSSource(GrayjayPlugin plugin, IJavaScriptObject obj)
         {
@@ -40,6 +43,7 @@ namespace Grayjay.Engine.Models.Video.Sources
             _requestModifier = obj.GetOrDefault<Request>(plugin, "requestModifier", nameof(JSSource), null);
             HasRequestModifier = _requestModifier != null || obj.HasFunction("getRequestModifier");
             HasRequestExecutor = obj.HasFunction("getRequestExecutor");
+            HasLicenseRequestExecutor = obj.HasFunction("getLicenseRequestExecutor");
         }
 
         public virtual IRequestModifier GetRequestModifier()
@@ -69,6 +73,18 @@ namespace Grayjay.Engine.Models.Video.Sources
                 return null;
 
             var result = _obj.InvokeV8(_plugin.Config, "getRequestExecutor");
+            if (result is IJavaScriptObject)
+                return V8Converter.ConvertValue<RequestExecutor>(_plugin, result);
+            else
+                return null;
+        }
+
+        public RequestExecutor GetLicenseRequestExecutor()
+        {
+            if (!HasLicenseRequestExecutor || _obj == null)
+                return null;
+
+            var result = _obj.InvokeV8(_plugin.Config, "getLicenseRequestExecutor");
             if (result is IJavaScriptObject)
                 return V8Converter.ConvertValue<RequestExecutor>(_plugin, result);
             else

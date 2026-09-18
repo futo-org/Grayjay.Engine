@@ -18,6 +18,7 @@ namespace Grayjay.Engine.Packages
     public class PackageBridge: Package
     {
         public static int AppVersion { get; set; } = 13;
+        public static bool WidevineSupported { get; set; } = false;
 
         public override string Name => "Bridge";
         public override string VariableName => "bridge";
@@ -44,11 +45,14 @@ namespace Grayjay.Engine.Packages
         {
             get
             {
-                return new string[]
+                var features = new List<string>
                 {
                     "ReloadRequiredException",
                     "Async"
-                }.ToScriptArray();
+                };
+                if (WidevineSupported)
+                    features.Add("HLSWidevineSource");
+                return features.ToScriptArray();
             }
         }
 
