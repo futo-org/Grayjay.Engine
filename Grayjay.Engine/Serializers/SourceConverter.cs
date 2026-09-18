@@ -37,8 +37,12 @@ namespace Grayjay.Engine.Serializers
             IVideoSource content = typeDiscriminator switch
             {
                 "VideoUrlSource" => GJsonSerializer.Deserialize<VideoUrlSource>(ref reader),
+                "VideoUrlWidevineSource" => GJsonSerializer.Deserialize<VideoUrlWidevineSource>(ref reader),
                 "VideoUrlRangeSource" => GJsonSerializer.Deserialize<VideoUrlRangeSource>(ref reader),
                 "HLSSource" => GJsonSerializer.Deserialize<HLSManifestSource>(ref reader),
+                "HLSWidevineSource" => GJsonSerializer.Deserialize<HLSManifestWidevineSource>(ref reader),
+                "DashSource" => GJsonSerializer.Deserialize<DashManifestSource>(ref reader),
+                "DashWidevineSource" => GJsonSerializer.Deserialize<DashManifestWidevineSource>(ref reader),
                 "LocalVideoSource" => GJsonSerializer.Deserialize<LocalVideoSource>(ref reader),
                 "DashRawSource" => GJsonSerializer.Deserialize<DashManifestRawSource>(ref reader),
                 "VideoSourceDescription" => GJsonSerializer.Deserialize<VideoSourceDescription>(ref reader),
@@ -85,8 +89,10 @@ namespace Grayjay.Engine.Serializers
             IAudioSource content = typeDiscriminator switch
             {
                 "AudioUrlSource" => GJsonSerializer.Deserialize<AudioUrlSource>(ref reader),
+                "AudioUrlWidevineSource" => GJsonSerializer.Deserialize<AudioUrlWidevineSource>(ref reader),
                 "AudioUrlRangeSource" => GJsonSerializer.Deserialize<AudioUrlRangeSource>(ref reader),
                 "HLSSource" => GJsonSerializer.Deserialize<HLSManifestAudioSource>(ref reader),
+                "HLSWidevineSource" => GJsonSerializer.Deserialize<HLSManifestWidevineAudioSource>(ref reader),
                 "LocalAudioSource" => GJsonSerializer.Deserialize<LocalAudioSource>(ref reader),
                 "DashRawAudioSource" => GJsonSerializer.Deserialize<DashManifestRawAudioSource>(ref reader),
                 "AudioSourceDescription" => GJsonSerializer.Deserialize<AudioSourceDescription>(ref reader),

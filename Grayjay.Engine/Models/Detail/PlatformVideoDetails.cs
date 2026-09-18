@@ -1,5 +1,6 @@
 ﻿using Grayjay.Engine.Models.Feed;
 using Grayjay.Engine.Models.Live;
+using Grayjay.Engine.Models.Playback;
 using Grayjay.Engine.Models.Ratings;
 using Grayjay.Engine.Models.Subtitles;
 using Grayjay.Engine.Models.Video;
@@ -20,6 +21,7 @@ namespace Grayjay.Engine.Models.Detail
     {
         private bool _hasGetContentRecommendations = false;
         private bool _hasGetVODEvents = false;
+        private bool _hasGetPlaybackTracker = false;
         private PluginConfig _config = null;
 
 
@@ -48,6 +50,7 @@ namespace Grayjay.Engine.Models.Detail
         {
             _hasGetContentRecommendations = obj.HasFunction("getContentRecommendations");
             _hasGetVODEvents = obj.HasFunction("getVODEvents");
+            _hasGetPlaybackTracker = obj.HasFunction("getPlaybackTracker");
             _config = plugin.Config;
         }
 
@@ -61,6 +64,20 @@ namespace Grayjay.Engine.Models.Detail
             var contentPagerObj = (IJavaScriptObject)underlying.InvokeV8(_config, "getContentRecommendations");
             var plugin = GrayjayPlugin.GetEnginePlugin(underlying.Engine);
             return new V8Pager<PlatformContent>(plugin, contentPagerObj);
+        }
+
+        //Details-level tracker (Android's videoDetails.getPlaybackTracker parity)
+        public PlaybackTracker? GetPlaybackTracker()
+        {
+            var underlying = GetUnderlyingObject();
+            if (!_hasGetPlaybackTracker || underlying == null)
+                return null;
+
+            var trackerObj = underlying.InvokeV8(_config, "getPlaybackTracker") as IJavaScriptObject;
+            if (trackerObj == null)
+                return null;
+            var plugin = GrayjayPlugin.GetEnginePlugin(underlying.Engine);
+            return new PlaybackTracker(plugin, trackerObj);
         }
 
         public bool HasVODEvents() => _hasGetVODEvents;

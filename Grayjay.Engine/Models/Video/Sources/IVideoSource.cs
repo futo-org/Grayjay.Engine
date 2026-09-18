@@ -11,10 +11,14 @@ using System.Text.Json.Serialization;
 namespace Grayjay.Engine.Models.Video.Sources
 {
     [JsonDerivedType(typeof(VideoUrlSource))]
+    [JsonDerivedType(typeof(VideoUrlWidevineSource))]
     [JsonDerivedType(typeof(VideoUrlRangeSource))]
     [JsonDerivedType(typeof(HLSManifestSource))]
+    [JsonDerivedType(typeof(HLSManifestWidevineSource))]
     [JsonDerivedType(typeof(HLSVariantVideoUrlSource))]
     [JsonDerivedType(typeof(LocalVideoSource))]
+    [JsonDerivedType(typeof(DashManifestSource))]
+    [JsonDerivedType(typeof(DashManifestWidevineSource))]
     [JsonDerivedType(typeof(DashManifestRawSource))]
     [JsonDerivedType(typeof(VideoSourceDescription))]
     public interface IVideoSource: IV8Polymorphic
@@ -40,10 +44,18 @@ namespace Grayjay.Engine.Models.Video.Sources
             {
                 case "VideoUrlSource":
                     return typeof(VideoUrlSource);
+                case "VideoUrlWidevineSource":
+                    return typeof(VideoUrlWidevineSource);
                 case "VideoUrlRangeSource":
                     return typeof(VideoUrlRangeSource);
                 case "HLSSource":
                     return typeof(HLSManifestSource);
+                case "HLSWidevineSource":
+                    return typeof(HLSManifestWidevineSource);
+                case "DashSource":
+                    return typeof(DashManifestSource);
+                case "DashWidevineSource":
+                    return typeof(DashManifestWidevineSource);
                 case "DashRawSource":
                     return typeof(DashManifestRawSource);
                 case "VideoSourceDescription":

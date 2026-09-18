@@ -388,6 +388,20 @@ class VideoUrlSource {
         this.url = obj.url;
         if(obj.requestModifier)
             this.requestModifier = obj.requestModifier;
+        this.language = obj?.language;
+        this.original = obj?.original;
+    }
+}
+class VideoUrlWidevineSource extends VideoUrlSource {
+    constructor(obj) {
+        super(obj);
+        this.plugin_type = "VideoUrlWidevineSource";
+
+        this.licenseUri = obj.licenseUri;
+        if(obj.serviceCertificate)
+            this.serviceCertificate = obj.serviceCertificate;
+        if(obj.getLicenseRequestExecutor)
+            this.getLicenseRequestExecutor = obj.getLicenseRequestExecutor;
     }
 }
 class VideoUrlRangeSource extends VideoUrlSource {
@@ -422,8 +436,34 @@ class AudioUrlWidevineSource extends AudioUrlSource {
         super(obj);
         this.plugin_type = "AudioUrlWidevineSource";
 
-        this.bearerToken = obj.bearerToken;
         this.licenseUri = obj.licenseUri;
+        if(obj.serviceCertificate)
+            this.serviceCertificate = obj.serviceCertificate;
+        if(obj.getLicenseRequestExecutor)
+            this.getLicenseRequestExecutor = obj.getLicenseRequestExecutor;
+
+        // deprecated api conversion
+        if(obj.bearerToken) {
+            this.getLicenseRequestExecutor = () => {
+                return {
+                    executeRequest: (url, _headers, _method, license_request_data) => {
+                        const response = http.POST(
+                           url,
+                           license_request_data,
+                           { Authorization: `Bearer ${obj.bearerToken}` },
+                           false,
+                           true
+                       );
+
+                       if (!response.body) {
+                           throw new ScriptException("Unable to acquire license key");
+                       }
+
+                       return response.body;
+                   }
+                }
+            }
+        }
     }
 }
 class AudioUrlRangeSource extends AudioUrlSource {
@@ -451,6 +491,20 @@ class HLSSource {
             this.language = obj.language;
         if(obj.requestModifier)
             this.requestModifier = obj.requestModifier;
+        this.language = obj?.language;
+        this.original = obj?.original;
+    }
+}
+class HLSWidevineSource extends HLSSource {
+    constructor(obj) {
+        super(obj);
+        this.plugin_type = "HLSWidevineSource";
+
+        this.licenseUri = obj.licenseUri;
+        if(obj.serviceCertificate)
+            this.serviceCertificate = obj.serviceCertificate;
+        if(obj.getLicenseRequestExecutor)
+            this.getLicenseRequestExecutor = obj.getLicenseRequestExecutor;
     }
 }
 class DashSource {
@@ -465,6 +519,20 @@ class DashSource {
             this.language = obj.language;
         if(obj.requestModifier)
             this.requestModifier = obj.requestModifier;
+        this.language = obj?.language;
+        this.original = obj?.original;
+    }
+}
+class DashWidevineSource extends DashSource {
+    constructor(obj) {
+        super(obj);
+        this.plugin_type = "DashWidevineSource";
+
+        this.licenseUri = obj.licenseUri;
+        if(obj.serviceCertificate)
+            this.serviceCertificate = obj.serviceCertificate;
+        if(obj.getLicenseRequestExecutor)
+            this.getLicenseRequestExecutor = obj.getLicenseRequestExecutor;
     }
 }
 class DashManifestRawSource {
