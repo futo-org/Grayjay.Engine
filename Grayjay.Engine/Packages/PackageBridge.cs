@@ -18,6 +18,7 @@ namespace Grayjay.Engine.Packages
     public class PackageBridge: Package
     {
         public static int AppVersion { get; set; } = 13;
+        public static Func<bool> SupportsUMP { get; set; } = () => true;
         public static bool WidevineSupported { get; set; } = false;
 
         public override string Name => "Bridge";
@@ -50,6 +51,8 @@ namespace Grayjay.Engine.Packages
                     "ReloadRequiredException",
                     "Async"
                 };
+                if (SupportsUMP())
+                    features.Add("UMPSource");
                 if (WidevineSupported)
                     features.Add("HLSWidevineSource");
                 return features.ToScriptArray();

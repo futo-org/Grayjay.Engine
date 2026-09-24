@@ -20,6 +20,7 @@ namespace Grayjay.Engine.Models.Video.Sources
     [JsonDerivedType(typeof(DashManifestSource))]
     [JsonDerivedType(typeof(DashManifestWidevineSource))]
     [JsonDerivedType(typeof(DashManifestRawSource))]
+    [JsonDerivedType(typeof(UMPSource))]
     [JsonDerivedType(typeof(VideoSourceDescription))]
     public interface IVideoSource: IV8Polymorphic
     {
@@ -58,6 +59,8 @@ namespace Grayjay.Engine.Models.Video.Sources
                     return typeof(DashManifestWidevineSource);
                 case "DashRawSource":
                     return typeof(DashManifestRawSource);
+                case "UMPSource":
+                    return typeof(UMPSource);
                 case "VideoSourceDescription":
                     return typeof(VideoSourceDescription);
             }
