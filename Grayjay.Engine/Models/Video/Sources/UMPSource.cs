@@ -76,6 +76,19 @@ namespace Grayjay.Engine.Models.Video.Sources
 
         public string VideoLabel => QualityLabel;
 
+        public static string LanguageDisplayName(string language)
+        {
+            try
+            {
+                var culture = System.Globalization.CultureInfo.GetCultureInfo(language.Replace('_', '-'));
+                var name = culture.EnglishName;
+                if (!string.IsNullOrWhiteSpace(name) && !name.StartsWith("Unknown", StringComparison.OrdinalIgnoreCase) && !string.Equals(name, language, StringComparison.OrdinalIgnoreCase))
+                    return name;
+            }
+            catch (System.Globalization.CultureNotFoundException) { }
+            return language;
+        }
+
         public string AudioLabel
         {
             get
@@ -83,7 +96,7 @@ namespace Grayjay.Engine.Models.Video.Sources
                 var parts = new List<string>();
                 var lang = (!string.IsNullOrWhiteSpace(Language) && !string.Equals(Language, "Unknown", StringComparison.OrdinalIgnoreCase)) ? Language : null;
                 var label = "";
-                if (lang != null) label += lang + " ";
+                if (lang != null) label += LanguageDisplayName(lang) + " ";
                 label += Bitrate > 0 ? $"{Bitrate / 1000}kbps" : $"itag {Itag}";
                 if (AudioChannels > 2) label += $" {AudioChannels}ch";
                 if (IsDrc) label += " (normalized)";

@@ -22,6 +22,8 @@ namespace Grayjay.Engine.Models.Subtitles
         public string Url { get; set; }
         [V8Property("format")]
         public string Format { get; set; }
+        [V8Property("language", true)]
+        public string? Language { get; set; }
 
         public bool HasFetch { get; set; }
 
@@ -67,6 +69,7 @@ namespace Grayjay.Engine.Models.Subtitles
                 {
                     Name = Name,
                     Format = Format,
+                    Language = Language,
                     Url = Url,
                     HasFetch = true,
                     _Subtitles = subs
@@ -81,6 +84,7 @@ namespace Grayjay.Engine.Models.Subtitles
                     {
                         Name = Name,
                         Format = Format,
+                        Language = Language,
                         Url = Url,
                         HasFetch = true,
                         _Subtitles = subs
