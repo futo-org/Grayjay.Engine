@@ -672,12 +672,12 @@ namespace Grayjay.Engine
         });
         [JSDocs(12, "getChannelPlaylists", "source.getChannelPlaylists()", "")]
         [JSDocsParameter("channelUrl", "", 0)]
-        public virtual IPager<PlatformPlaylist> getChannelPlaylists(string channelUrl) => WithIsBusy(() =>
+        public virtual IPager<PlatformContent> getChannelPlaylists(string channelUrl) => WithIsBusy(() =>
         {
             EnsureEnabled();
             if (!Capabilities.HasGetChannelPlaylists)
                 return null;
-            return EvaluatePager<PlatformPlaylist>($"source.getChannelPlaylists({SerializeParameter(channelUrl)})", (content) =>
+            return EvaluatePager<PlatformContent>($"source.getChannelPlaylists({SerializeParameter(channelUrl)})", (content) =>
             {
                 content.ID.PluginID = Config.ID;
             });
