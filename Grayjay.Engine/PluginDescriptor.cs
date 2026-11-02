@@ -19,7 +19,12 @@ namespace Grayjay.Engine
 
         public List<string> Flags { get; set; }
 
+        private readonly object _authCookieLock = new object();
+        private SourceAuth _authCookieCache = null;
+        private string _authCookieCacheEncrypted = null;
+
         public event Action OnAuthChanged;
+        public event Action OnAuthCookiesUpdated;
         public event Action OnCaptchaChanged;
 
         public bool HasLoggedIn => !string.IsNullOrEmpty(AuthEncrypted);
@@ -53,6 +58,46 @@ namespace Grayjay.Engine
             string json = JsonSerializer.Serialize(auth);
             AuthEncrypted = Encryption.Encrypt(json);
             OnAuthChanged?.Invoke();
+        }
+
+        private SourceAuth GetAuthCookieCache()
+        {
+            if (_authCookieCache == null || _authCookieCacheEncrypted != AuthEncrypted)
+            {
+                _authCookieCache = GetAuth();
+                _authCookieCacheEncrypted = AuthEncrypted;
+            }
+            return _authCookieCache;
+        }
+
+        public Dictionary<string, string> GetAuthCookies(Func<string, bool> domainFilter)
+        {
+            var result = new Dictionary<string, string>();
+            lock (_authCookieLock)
+            {
+                var cookieMap = GetAuthCookieCache()?.CookieMap;
+                if (cookieMap == null)
+                    return result;
+                foreach (var domainCookies in cookieMap.Where(x => domainFilter(x.Key)))
+                    foreach (var cookie in domainCookies.Value)
+                        result[cookie.Key] = cookie.Value;
+            }
+            return result;
+        }
+
+        public bool UpdateAuthCookie(string domain, string name, string value)
+        {
+            lock (_authCookieLock)
+            {
+                var auth = GetAuthCookieCache();
+                if (auth?.CookieMap == null || !auth.CookieMap.TryGetValue(domain, out var cookies) || !cookies.TryGetValue(name, out var existing) || existing == value)
+                    return false;
+                cookies[name] = value;
+                AuthEncrypted = Encryption.Encrypt(JsonSerializer.Serialize(auth));
+                _authCookieCacheEncrypted = AuthEncrypted;
+            }
+            OnAuthCookiesUpdated?.Invoke();
+            return true;
         }
 
         public Dictionary<string, string?> GetSettingsWithDefaults()

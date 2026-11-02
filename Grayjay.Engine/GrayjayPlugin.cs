@@ -1289,6 +1289,21 @@ namespace Grayjay.Engine
             return dict;
         }
 
+        private void ApplySharedAuthCookies(string domain, Dictionary<string, string> cookies)
+        {
+            var descriptor = _plugin?.Descriptor;
+            if (_auth == null || descriptor == null)
+                return;
+            foreach (var cookie in descriptor.GetAuthCookies(x => domain.MatchesDomain(x)))
+                cookies[cookie.Key] = cookie.Value;
+        }
+
+        private void UpdateSharedAuthCookie(string domain, string name, string value)
+        {
+            if (_auth != null && !string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(value))
+                _plugin?.Descriptor?.UpdateAuthCookie(domain, name, value);
+        }
+
         public override void BeforeRequest(HttpRequestMessage request)
         {
             var domain = request.RequestUri.Host.ToLower();
@@ -1314,6 +1329,7 @@ namespace Grayjay.Engine
                         foreach (var cookie in _currentCookieMap.Where(x => domain.MatchesDomain(x.Key)).SelectMany(x => x.Value))
                             cookiesToApply[cookie.Key] = cookie.Value;
                     }
+                    ApplySharedAuthCookies(domain, cookiesToApply);
 
                     if (cookiesToApply.Count > 0)
                     {
@@ -1369,6 +1385,7 @@ namespace Grayjay.Engine
                         foreach (var cookie in _currentCookieMap.Where(x => domain.MatchesDomain(x.Key)).SelectMany(x => x.Value))
                             cookiesToApply[cookie.Key] = cookie.Value;
                     }
+                    ApplySharedAuthCookies(domain, cookiesToApply);
                 }
 
                 if (cookiesToApply?.Any() ?? false)
@@ -1440,6 +1457,7 @@ namespace Grayjay.Engine
                             }
                             if (cookieMap.ContainsKey(cookieKey) || DoAllowNewCookies)
                                 cookieMap[cookieKey] = cookieValue;
+                            UpdateSharedAuthCookie(domainToUse, cookieKey, cookieValue);
                         }
                         else
                         {
@@ -1511,6 +1529,7 @@ namespace Grayjay.Engine
                                 }
                                 if(cookieMap.ContainsKey(cookieKey) || DoAllowNewCookies)
                                     cookieMap[cookieKey] = cookieValue;
+                                UpdateSharedAuthCookie(domainToUse, cookieKey, cookieValue);
                             }
                             else
                             {
