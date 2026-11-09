@@ -43,7 +43,8 @@ namespace Grayjay.Engine.Pagers
                     continue;
 
                 var sameItems = results.Where(r => IsSameItem(result, r)).ToList();
-                var platformItemMap = sameItems.GroupBy(r => r.ID.PluginID).ToDictionary(group => group.Key, group => group.First());
+                //TODO: PluginID can apparantly be null here. In future we need to filter this out in general, but to prevent hiding results, we'll just empty it for now.
+                var platformItemMap = sameItems.GroupBy(r => r.ID.PluginID).ToDictionary(group => group.Key ?? "", group => group.First());
                 var bestPlatform = _preferredPlatform.Select(p => p.ToLowerInvariant()).FirstOrDefault(platformItemMap.ContainsKey);
                 var bestItem = (bestPlatform != null) ?
                     platformItemMap.TryGetValue(bestPlatform, out var item) ? item : sameItems.FirstOrDefault()
