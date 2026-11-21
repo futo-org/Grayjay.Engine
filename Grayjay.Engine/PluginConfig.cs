@@ -128,6 +128,30 @@ namespace Grayjay.Engine
             return SignatureProvider.Verify(script, ScriptSignature, ScriptPublicKey);
         }
 
+        public bool IsLowRiskUpdate(string oldScript, PluginConfig update, string newScript)
+        {
+            if (ID != update.ID || update.Version <= Version ||
+                (!AllowAllHttpHeaderAccess && update.AllowAllHttpHeaderAccess))
+                return false;
+            if ((update.AllowUrls ?? new List<string>()).Except(AllowUrls ?? new List<string>()).Any() ||
+                (update.Packages ?? new List<string>()).Except(Packages ?? new List<string>()).Any() ||
+                (update.PackagesOptional ?? new List<string>()).Except(PackagesOptional ?? new List<string>()).Any())
+                return false;
+            if (!string.IsNullOrEmpty(update.DeveloperSubmitUrl) && update.DeveloperSubmitUrl != DeveloperSubmitUrl)
+                return false;
+            if (string.IsNullOrEmpty(ScriptPublicKey) || string.IsNullOrEmpty(ScriptSignature) ||
+                string.IsNullOrEmpty(update.ScriptSignature) || ScriptPublicKey != update.ScriptPublicKey)
+                return false;
+            try
+            {
+                return VerifySignature(oldScript) && update.VerifySignature(newScript);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public List<PluginWarning> GetWarnings()
         {
             List<PluginWarning> warnings = new List<PluginWarning>();

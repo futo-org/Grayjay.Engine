@@ -9,8 +9,11 @@ namespace Grayjay.Engine.Setting
     {
 
 
-        [SettingsField("Check for updates", SettingsField.TOGGLE, "If a plugin should be checked for updates on startup", 1)]
+        [SettingsField("Check for updates", SettingsField.TOGGLE, "Check this source for updates", 0)]
         public bool CheckForUpdate { get; set; } = true;
+
+        [SettingsField("Automatic update", SettingsField.TOGGLE, "Automatically install signed updates from the same author when they require no additional permissions", 1)]
+        public bool AutomaticUpdate { get; set; } = true;
 
         [SettingsField("Visibility", SettingsField.GROUP, "Enable where this plugin's contents are visible", 2)]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
