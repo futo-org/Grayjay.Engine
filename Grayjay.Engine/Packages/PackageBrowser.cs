@@ -193,9 +193,11 @@ namespace Grayjay.Engine.Packages
         [ScriptMember]
         public void load(string url)
         {
+            _callbacks.Clear();
             Logger.Info<PackageBrowser>($"load() begin (url={url})");
             _currentUrl = url;
-            WindowOrThrow().LoadUrlAsync(url).GetAwaiter().GetResult();
+            using var navigation = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            WindowOrThrow().NavigateAsync(url, navigation.Token).GetAwaiter().GetResult();
             Logger.Info<PackageBrowser>($"load() end (url={url})");
         }
 
@@ -211,12 +213,25 @@ namespace Grayjay.Engine.Packages
                 _callbacks[callbackId] = callback;
             }
 
-            _ = ExecuteDevToolsBlocking("Runtime.evaluate", new
+            try
             {
-                expression = js,
-                awaitPromise = false,
-                returnByValue = false
-            });
+                var raw = ExecuteDevToolsBlocking("Runtime.evaluate", new
+                {
+                    expression = js,
+                    awaitPromise = false,
+                    returnByValue = false
+                });
+                using var result = JsonDocument.Parse(raw);
+                if (result.RootElement.TryGetProperty("exceptionDetails", out _))
+                {
+                    throw new InvalidOperationException("Browser script execution failed");
+                }
+            }
+            catch
+            {
+                if (callbackId != null) _callbacks.TryRemove(callbackId, out _);
+                throw;
+            }
         }
 
         [ScriptMember]
@@ -331,15 +346,13 @@ namespace Grayjay.Engine.Packages
         {
             try
             {
-                Logger.Info<PackageBrowser>($"HandleGJCallback(): " + payload);
-
                 using var doc = JsonDocument.Parse(payload);
                 var root = doc.RootElement;
 
                 var id = root.GetProperty("id").GetString();
                 var result = root.GetProperty("result").GetString();
 
-                Logger.Info<PackageBrowser>($"HandleGJCallback(id = {id}, result = {result})");
+                Logger.Info<PackageBrowser>($"HandleGJCallback(id = {id}, resultLength = {result?.Length ?? 0})");
 
                 if (string.IsNullOrEmpty(id))
                 {
@@ -349,7 +362,6 @@ namespace Grayjay.Engine.Packages
 
                 if (_callbacks.TryRemove(id, out var cb))
                 {
-                    Logger.Info<PackageBrowser>($"HandleGJCallback invoke result (id = {id}, result = {result})");
                     InvokeOnV8(() => cb.Invoke(false, result));
                 }
                 else
