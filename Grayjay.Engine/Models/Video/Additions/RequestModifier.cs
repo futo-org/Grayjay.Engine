@@ -135,6 +135,17 @@ namespace Grayjay.Engine.Models.Video.Additions
                         Headers = toModifyHeaders;
                     }
                 }
+
+                if (Options.ApplyAuthClient != null && Url != null)
+                {
+                    var client = plugin.GetHttpClientById(Options.ApplyAuthClient);
+                    if (client != null)
+                    {
+                        var toModifyHeaders = Headers != null ? new HttpHeaders(Headers) : new HttpHeaders();
+                        client.ApplyHeaders(new Uri(Url), toModifyHeaders, true, false);
+                        Headers = toModifyHeaders;
+                    }
+                }
             }
         }
 
