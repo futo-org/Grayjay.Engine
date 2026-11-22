@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -28,6 +29,15 @@ public static class Libcurl
         public int Status;
         public string? EffectiveUrl;
         public required byte[] BodyBytes;
+        public List<KeyValuePair<string, string>> Headers = new();
+    }
+
+    public delegate void BodyChunkHandler(ReadOnlySpan<byte> chunk);
+
+    public sealed class ResponseHead
+    {
+        public int Status;
+        public string? EffectiveUrl;
         public List<KeyValuePair<string, string>> Headers = new();
     }
 
@@ -129,6 +139,7 @@ public static class Libcurl
         COOKIEFILE = 10031,
         COOKIEJAR = 10082,
         CUSTOMREQUEST = 10036,
+        NOBODY = 44,
         POSTFIELDS = 10015,
         POSTFIELDSIZE = 60,
         WRITEFUNCTION = 20011,
@@ -198,6 +209,21 @@ public static class Libcurl
         public readonly MemoryStream Body = new(64 * 1024);
         public readonly List<string> Headers = new();
         public byte[] Scratch = Array.Empty<byte>();
+        public int Status;
+        public Action<ResponseHead>? OnHead;
+        public BodyChunkHandler? OnBody;
+        public bool HeadDelivered;
+        public ExceptionDispatchInfo? CallbackError;
+        public IntPtr Easy;
+        public string RequestUrl = "";
+
+        public void DeliverHead(string? effectiveUrl = null)
+        {
+            if (HeadDelivered)
+                return;
+            HeadDelivered = true;
+            OnHead?.Invoke(new ResponseHead { Status = Status, EffectiveUrl = effectiveUrl ?? GetEffectiveUrl(Easy, RequestUrl), Headers = ParseHeaders(Headers) });
+        }
     }
 
     private static string? _defaultCAPath;
@@ -217,7 +243,24 @@ public static class Libcurl
 
         if (state.Scratch.Length < len) state.Scratch = new byte[len];
         Marshal.Copy(p, state.Scratch, 0, len);
-        state.Body.Write(state.Scratch, 0, len);
+
+        if (state.OnBody == null)
+        {
+            state.Body.Write(state.Scratch, 0, len);
+            return (UIntPtr)sz;
+        }
+
+        // Exceptions must not unwind through native code; returning 0 makes curl abort with a write error.
+        try
+        {
+            state.DeliverHead();
+            state.OnBody(new ReadOnlySpan<byte>(state.Scratch, 0, len));
+        }
+        catch (Exception e)
+        {
+            state.CallbackError = ExceptionDispatchInfo.Capture(e);
+            return (UIntPtr)0;
+        }
 
         return (UIntPtr)sz;
     }
@@ -235,7 +278,18 @@ public static class Libcurl
 
         // Header lines may contain binary; we’ll trim CRLF only
         var line = Encoding.ASCII.GetString(state.Scratch, 0, len).TrimEnd('\r', '\n');
-        if (!string.IsNullOrWhiteSpace(line))
+
+        // Curl reports the headers of every followed redirect. Streaming keeps only the final response's headers;
+        // Perform keeps all of them, because plugin HTTP reads set-cookie from redirect hops.
+        if (line.StartsWith("HTTP/", StringComparison.Ordinal))
+        {
+            if (state.OnBody != null)
+                state.Headers.Clear();
+            var statusParts = line.Split(' ', 3, StringSplitOptions.RemoveEmptyEntries);
+            if (statusParts.Length >= 2 && int.TryParse(statusParts[1], out var status))
+                state.Status = status;
+        }
+        else if (!string.IsNullOrWhiteSpace(line))
             state.Headers.Add(line);
 
         return (UIntPtr)sz;
@@ -243,19 +297,54 @@ public static class Libcurl
 
     public static Response Perform(Request req)
     {
+        var state = new CallbackState();
+        var (status, effectiveUrl) = Execute(req, state);
+        return new Response
+        {
+            Status = status,
+            EffectiveUrl = effectiveUrl,
+            BodyBytes = state.Body.ToArray(),
+            Headers = ParseHeaders(state.Headers)
+        };
+    }
+
+    /// <summary>
+    /// Like <see cref="Perform"/>, but passes the final response body to <paramref name="onBody"/> as it arrives.
+    /// <paramref name="onHead"/> runs once, before the first body chunk (or after the transfer when there is no body).
+    /// Exceptions thrown by either callback abort the transfer and are rethrown.
+    /// </summary>
+    public static ResponseHead PerformStreaming(Request req, Action<ResponseHead> onHead, BodyChunkHandler onBody)
+    {
+        var state = new CallbackState { OnHead = onHead, OnBody = onBody };
+        var (status, effectiveUrl) = Execute(req, state);
+        state.Status = status;
+        state.DeliverHead(effectiveUrl);
+        return new ResponseHead { Status = status, EffectiveUrl = effectiveUrl, Headers = ParseHeaders(state.Headers) };
+    }
+
+    private static string GetEffectiveUrl(IntPtr easy, string requestUrl)
+    {
+        if (easy == IntPtr.Zero || ce_easy_getinfo_ptr(easy, CURLINFO.EFFECTIVE_URL, out IntPtr urlPtr) != CURLcode.CURLE_OK || urlPtr == IntPtr.Zero)
+            return requestUrl;
+        return Marshal.PtrToStringAnsi(urlPtr) ?? requestUrl;
+    }
+
+    private static (int Status, string? EffectiveUrl) Execute(Request req, CallbackState state)
+    {
         EnsureGlobalInit();
 
         IntPtr easy = IntPtr.Zero;
         IntPtr hdrs = IntPtr.Zero;
         IntPtr bodyPtr = IntPtr.Zero;
 
-        var state = new CallbackState();
         var gch = GCHandle.Alloc(state, GCHandleType.Normal);
 
         try
         {
             easy = ce_easy_init();
             if (easy == IntPtr.Zero) throw new InvalidOperationException("curl_easy_init failed");
+            state.Easy = easy;
+            state.RequestUrl = req.Url;
 
             var imp = ce_easy_impersonate(easy, req.ImpersonateTarget, req.UseBuiltInHeaders ? 1 : 0);
             if (imp != CURLcode.CURLE_OK && imp != CURLcode.CURLE_UNKNOWN_OPTION)
@@ -282,7 +371,10 @@ public static class Libcurl
             if (hdrs != IntPtr.Zero)
                 Check(ce_setopt_ptr(easy, CURLOPT.HTTPHEADER, hdrs));
 
-            if (!string.Equals(req.Method, "GET", StringComparison.OrdinalIgnoreCase))
+            // A custom HEAD makes curl wait for the body announced by content-length.
+            if (string.Equals(req.Method, "HEAD", StringComparison.OrdinalIgnoreCase))
+                Check(ce_setopt_long(easy, CURLOPT.NOBODY, 1));
+            else if (!string.Equals(req.Method, "GET", StringComparison.OrdinalIgnoreCase))
             {
                 Check(ce_setopt_str(easy, CURLOPT.CUSTOMREQUEST, req.Method));
                 if (req.Body is { Length: > 0 })
@@ -304,24 +396,17 @@ public static class Libcurl
             Check(ce_setopt_ptr(easy, CURLOPT.HEADERDATA, user));
 
             var rc = ce_easy_perform(easy);
+            state.CallbackError?.Throw();
             if (rc != CURLcode.CURLE_OK)
                 throw new InvalidOperationException($"curl_easy_perform failed: {GetErr(rc)}");
 
             Check(ce_easy_getinfo_long(easy, CURLINFO.RESPONSE_CODE, out long code));
-            Check(ce_easy_getinfo_ptr(easy, CURLINFO.EFFECTIVE_URL, out IntPtr urlPtr));
-            var effective = urlPtr != IntPtr.Zero ? Marshal.PtrToStringAnsi(urlPtr) : req.Url;
-
-            return new Response
-            {
-                Status = (int)code,
-                EffectiveUrl = effective,
-                BodyBytes = state.Body.ToArray(),
-                Headers = ParseHeaders(state.Headers)
-            };
+            return ((int)code, GetEffectiveUrl(easy, req.Url));
         }
         finally
         {
             if (bodyPtr != IntPtr.Zero) Marshal.FreeHGlobal(bodyPtr);
+            state.Easy = IntPtr.Zero;
             if (easy != IntPtr.Zero) ce_easy_cleanup(easy);
             if (hdrs != IntPtr.Zero) ce_slist_free_all(hdrs);
             if (gch.IsAllocated) gch.Free();
