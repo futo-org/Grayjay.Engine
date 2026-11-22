@@ -68,7 +68,7 @@ namespace Grayjay.Engine.Setting
         public AdvancedSettings Advanced { get; set; } = new AdvancedSettings();
         public class AdvancedSettings
         {
-            [SettingsField("Allow tampered script", SettingsField.TOGGLE, "Show content in home tab", 1)]
+            [SettingsField("Allow tampered script", SettingsField.TOGGLE, "Run the plugin even if its script does not match its signature", 1)]
             public bool AllowTamper { get; set; } = false;
         }
 
