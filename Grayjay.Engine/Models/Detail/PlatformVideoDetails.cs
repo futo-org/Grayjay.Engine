@@ -22,6 +22,9 @@ namespace Grayjay.Engine.Models.Detail
         private bool _hasGetContentRecommendations = false;
         private bool _hasGetVODEvents = false;
         private bool _hasGetPlaybackTracker = false;
+        private bool _hasGetSeekThumbnailProvider = false;
+        private bool _seekThumbnailProviderLoaded = false;
+        private SeekThumbnailProvider? _seekThumbnailProvider;
         private PluginConfig _config = null;
 
 
@@ -51,6 +54,7 @@ namespace Grayjay.Engine.Models.Detail
             _hasGetContentRecommendations = obj.HasFunction("getContentRecommendations");
             _hasGetVODEvents = obj.HasFunction("getVODEvents");
             _hasGetPlaybackTracker = obj.HasFunction("getPlaybackTracker");
+            _hasGetSeekThumbnailProvider = obj.HasFunction("getSeekThumbnailProvider");
             _config = plugin.Config;
         }
 
@@ -78,6 +82,22 @@ namespace Grayjay.Engine.Models.Detail
                 return null;
             var plugin = GrayjayPlugin.GetEnginePlugin(underlying.Engine);
             return new PlaybackTracker(plugin, trackerObj);
+        }
+
+        public SeekThumbnailProvider? GetSeekThumbnailProvider()
+        {
+            lock (this)
+            {
+                var underlying = GetUnderlyingObject();
+                if (!_hasGetSeekThumbnailProvider || underlying == null || _seekThumbnailProviderLoaded)
+                    return _seekThumbnailProvider;
+
+                _seekThumbnailProviderLoaded = true;
+                var obj = underlying.InvokeV8(_config, "getSeekThumbnailProvider") as IJavaScriptObject;
+                if (obj != null)
+                    _seekThumbnailProvider = new SeekThumbnailProvider(GrayjayPlugin.GetEnginePlugin(underlying.Engine), obj);
+                return _seekThumbnailProvider;
+            }
         }
 
         public bool HasVODEvents() => _hasGetVODEvents;

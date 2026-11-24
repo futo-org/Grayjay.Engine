@@ -271,6 +271,9 @@ class PlatformVideoDetails extends PlatformVideo {
         if (obj.getContentRecommendations) {
             this.getContentRecommendations = obj.getContentRecommendations
         }
+        if (obj.getSeekThumbnailProvider) {
+            this.getSeekThumbnailProvider = obj.getSeekThumbnailProvider;
+        }
     }
 }
 
