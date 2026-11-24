@@ -752,7 +752,7 @@ namespace Grayjay.Engine
         [JSDocs(16, "getUserHistory", "source.getUserHistory()", "")]
         public virtual IPager<PlatformContent> getUserHistory() => WithIsBusy(() =>
         {
-            if (!Capabilities.HasGetUserPlaylists)
+            if (!Capabilities.HasGetUserHistory)
                 return null;
             EnsureEnabled();
             return EvaluatePager<PlatformContent>($"source.getUserHistory()", (content) =>

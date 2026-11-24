@@ -131,6 +131,8 @@ public static class Libcurl
         MAXREDIRS = 68,
         CONNECTTIMEOUT_MS = 156,
         TIMEOUT_MS = 155,
+        LOW_SPEED_LIMIT = 19,
+        LOW_SPEED_TIME = 20,
         HTTP_VERSION = 84,
         USERAGENT = 10018,
         ACCEPT_ENCODING = 10102,
@@ -311,6 +313,7 @@ public static class Libcurl
     /// <summary>
     /// Like <see cref="Perform"/>, but passes the final response body to <paramref name="onBody"/> as it arrives.
     /// <paramref name="onHead"/> runs once, before the first body chunk (or after the transfer when there is no body).
+    /// <see cref="Request.TimeoutMs"/> bounds connecting, and aborts a transfer whose average speed stays below 1 byte/s for that long.
     /// Exceptions thrown by either callback abort the transfer and are rethrown.
     /// </summary>
     public static ResponseHead PerformStreaming(Request req, Action<ResponseHead> onHead, BodyChunkHandler onBody)
@@ -354,7 +357,13 @@ public static class Libcurl
             Check(ce_setopt_long(easy, CURLOPT.FOLLOWLOCATION, 1));
             Check(ce_setopt_long(easy, CURLOPT.MAXREDIRS, 10));
             Check(ce_setopt_long(easy, CURLOPT.CONNECTTIMEOUT_MS, req.TimeoutMs));
-            Check(ce_setopt_long(easy, CURLOPT.TIMEOUT_MS, req.TimeoutMs));
+            if (state.OnBody == null)
+                Check(ce_setopt_long(easy, CURLOPT.TIMEOUT_MS, req.TimeoutMs));
+            else
+            {
+                Check(ce_setopt_long(easy, CURLOPT.LOW_SPEED_LIMIT, 1));
+                Check(ce_setopt_long(easy, CURLOPT.LOW_SPEED_TIME, Math.Max(1, req.TimeoutMs / 1000)));
+            }
             Check(ce_setopt_long(easy, CURLOPT.HTTP_VERSION, (long)CURL_HTTP_VERSION.TWO_TLS));
             Check(ce_setopt_str(easy, CURLOPT.ACCEPT_ENCODING, string.Empty));
 
