@@ -25,6 +25,8 @@ namespace Grayjay.Engine.Models.Video.Sources
 
         public bool HasLicenseRequestExecutor { get; private set; }
 
+        public bool HasFallbackSource { get; private set; }
+
         public virtual bool CanSerialize { get; } = true;
 
         public JSSource()
@@ -44,6 +46,16 @@ namespace Grayjay.Engine.Models.Video.Sources
             HasRequestModifier = _requestModifier != null || obj.HasFunction("getRequestModifier");
             HasRequestExecutor = obj.HasFunction("getRequestExecutor");
             HasLicenseRequestExecutor = obj.HasFunction("getLicenseRequestExecutor");
+            HasFallbackSource = obj.HasFunction("getFallbackSource");
+        }
+
+        public VideoDescriptor? GetFallbackSource()
+        {
+            if (!HasFallbackSource || _obj == null)
+                return null;
+
+            var result = _obj.InvokeV8(_plugin.Config, "getFallbackSource");
+            return result is IJavaScriptObject ? V8Converter.ConvertValue<VideoDescriptor>(_plugin, result) : null;
         }
 
         public virtual IRequestModifier GetRequestModifier()
