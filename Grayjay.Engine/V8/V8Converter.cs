@@ -35,6 +35,8 @@ namespace Grayjay.Engine.V8
             if (obj == null)
                 return null;
 
+            t = Nullable.GetUnderlyingType(t) ?? t;
+
             if (t == typeof(object))
                 return obj;
 
