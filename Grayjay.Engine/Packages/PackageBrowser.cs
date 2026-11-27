@@ -207,30 +207,80 @@ namespace Grayjay.Engine.Packages
             Logger.Info<PackageBrowser>($"run() waiting)");
             waitTillLoaded();
 
-            if (!string.IsNullOrEmpty(callbackId) && callback != null)
+            if (string.IsNullOrEmpty(callbackId) || callback == null)
             {
-                Logger.Info<PackageBrowser>($"run() with callback, set {callbackId})");
-                _callbacks[callbackId] = callback;
+                EvaluateOrThrow(js, returnObject: false);
+                return;
             }
 
+            Logger.Info<PackageBrowser>($"run() with callback, set {callbackId})");
+            _callbacks[callbackId] = callback;
+            string promiseId;
             try
             {
-                var raw = ExecuteDevToolsBlocking("Runtime.evaluate", new
-                {
-                    expression = js,
-                    awaitPromise = false,
-                    returnByValue = false
-                });
-                using var result = JsonDocument.Parse(raw);
-                if (result.RootElement.TryGetProperty("exceptionDetails", out _))
-                {
-                    throw new InvalidOperationException("Browser script execution failed");
-                }
+                promiseId = EvaluateOrThrow(CallbackScopePrefix + ScopeLegacyBridgeReferences(js) + CallbackScopeSuffix, returnObject: true)
+                    ?? throw new InvalidOperationException("Browser script did not produce a callback promise");
             }
             catch
             {
-                if (callbackId != null) _callbacks.TryRemove(callbackId, out _);
+                _callbacks.TryRemove(callbackId, out _);
                 throw;
+            }
+            _ = AwaitCallbackAsync(promiseId, callbackId);
+        }
+
+        private const string CallbackScopePrefix = "new Promise(__gjResolve => {\n" +
+            "const __GJ = { callback: (id, result) => __gjResolve(JSON.stringify({ id: String(id), result: (typeof result === 'string' ? result : JSON.stringify(result)) })), log: () => {} };\n";
+        private const string CallbackScopeSuffix = "\n})";
+
+        private static string ScopeLegacyBridgeReferences(string js) => js.Replace("window.__GJ", "__GJ", StringComparison.Ordinal);
+
+        private string? EvaluateOrThrow(string expression, bool returnObject)
+        {
+            var raw = ExecuteDevToolsBlocking("Runtime.evaluate", new
+            {
+                expression,
+                awaitPromise = false,
+                returnByValue = false
+            });
+            using var result = JsonDocument.Parse(raw);
+            if (result.RootElement.TryGetProperty("exceptionDetails", out _))
+                throw new InvalidOperationException("Browser script execution failed");
+            if (returnObject && result.RootElement.TryGetProperty("result", out var res) && res.TryGetProperty("objectId", out var objectId))
+                return objectId.GetString();
+            return null;
+        }
+
+        private async Task AwaitCallbackAsync(string promiseId, string callbackId)
+        {
+            try
+            {
+                var window = WindowOrThrow();
+                var (ok, data) = await window.ExecuteDevToolsMethodAsync("Runtime.awaitPromise",
+                    JsonSerializer.Serialize(new { promiseObjectId = promiseId, returnByValue = true })).ConfigureAwait(false);
+                _ = window.ExecuteDevToolsMethodAsync("Runtime.releaseObject", JsonSerializer.Serialize(new { objectId = promiseId }));
+                if (!ok)
+                {
+                    Logger.Warning<PackageBrowser>($"run() callback promise failed (id = {callbackId})");
+                    return;
+                }
+
+                using var doc = JsonDocument.Parse(data);
+                if (doc.RootElement.TryGetProperty("exceptionDetails", out _))
+                {
+                    Logger.Warning<PackageBrowser>($"run() callback promise rejected (id = {callbackId})");
+                    return;
+                }
+                if (doc.RootElement.TryGetProperty("result", out var res) && res.TryGetProperty("value", out var value) && value.ValueKind == JsonValueKind.String)
+                    HandleGJCallback(value.GetString() ?? "");
+            }
+            catch (Exception e)
+            {
+                Logger.Warning<PackageBrowser>($"run() callback failed (id = {callbackId})", e);
+            }
+            finally
+            {
+                _callbacks.TryRemove(callbackId, out _);
             }
         }
 
@@ -261,31 +311,12 @@ namespace Grayjay.Engine.Packages
                 w = WindowOrThrow();
             }
 
-            w.AddDevToolsEventMethod("Runtime.bindingCalled").GetAwaiter().GetResult();
-            w.AddDevToolsEventMethod("Runtime.consoleAPICalled").GetAwaiter().GetResult();
-
-            ExecuteDevToolsBlocking("Runtime.enable", new { });
             ExecuteDevToolsBlocking("Page.enable", new { });
-
-            ExecuteDevToolsBlocking("Runtime.addBinding", new { name = "__GJ_callback" });
-            ExecuteDevToolsBlocking("Runtime.addBinding", new { name = "__GJ_log" });
-
-            var bootstrap = """
-            (() => {
-                if (window.__GJ) return;
-                window.__GJ = {
-                    callback: (id, result) => {
-                        try { __GJ_callback(JSON.stringify({ id: String(id), result: (typeof result === 'string' ? result : JSON.stringify(result)) })); } catch (e) {}
-                    },
-                    log: (msg) => {
-                        try { __GJ_log(String(msg)); } catch (e) {}
-                    }
-                };
-            })();
-            """;
-
-            ExecuteDevToolsBlocking("Page.addScriptToEvaluateOnNewDocument", new { source = bootstrap });
-            ExecuteDevToolsBlocking("Runtime.evaluate", new { expression = bootstrap, awaitPromise = false, returnByValue = false });
+            if (Environment.GetEnvironmentVariable("GRAYJAY_BROWSER_CONSOLE") == "1")
+            {
+                w.AddDevToolsEventMethod("Runtime.consoleAPICalled").GetAwaiter().GetResult();
+                ExecuteDevToolsBlocking("Runtime.enable", new { });
+            }
 
             lock (_gate) _interopInstalled = true;
         }
@@ -299,19 +330,6 @@ namespace Grayjay.Engine.Packages
             {
                 using var doc = JsonDocument.Parse(payloadUtf8);
                 var root = doc.RootElement;
-
-                if (method == "Runtime.bindingCalled")
-                {
-                    var name = root.GetProperty("name").GetString();
-                    var payload = root.GetProperty("payload").GetString() ?? "";
-
-                    if (name == "__GJ_callback")
-                        HandleGJCallback(payload);
-                    else if (name == "__GJ_log")
-                        HandleGJLog(payload);
-
-                    return;
-                }
 
                 if (method == "Runtime.consoleAPICalled")
                 {
@@ -335,11 +353,6 @@ namespace Grayjay.Engine.Packages
             {
                 // ignore CDP noise
             }
-        }
-
-        private void HandleGJLog(string payload)
-        {
-            Logger.Info<PackageBrowser>("Browser Log: " + payload);
         }
 
         private void HandleGJCallback(string payload)
